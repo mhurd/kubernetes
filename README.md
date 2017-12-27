@@ -199,3 +199,14 @@ kubectl logs --namespace=kube-system $(kubectl get pods --namespace=kube-system 
 ```bash
 kubectl describe svc
 ```
+8. Using busybox (see yaml file in the repo) to check DNS
+```bash
+kubectl exec busybox -- nslookup postgres
+```
+9. Using shell in busybox
+```bash
+kubectl exec -ti busybox -- /bin/sh
+```
+10. Install a yaml config file
+```bash
+kubectl apply -f my_file.yaml
