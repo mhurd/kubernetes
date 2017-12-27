@@ -115,3 +115,87 @@ apt-get update
 apt-get upgrade
 apt-get install -y kubelet kubeadm kubectl kubernetes-cni
 ```
+Repeat this for all the nodes.
+
+## Setting up the Kubernetes Cluster
+On the master node (the one running DHCP and connected to the internet) we need to make some changes to the defaults systemd scripting as we are going to use weave-net for pod networking and we also want to suppress error about running with swap enabled.
+```bash
+sudo vim /etc/systemd/system/kubelet.service.d/10-kubeadm.conf
+```
+Add *--fail-swap-on=false* to the args in ExecStart and also remove $KUBELET_NETWORK_ARGS from ExecStart. Repeat this on all the nodes.
+
+Now use the kubeadm init command to bootstrap the cluster from the master node:
+```bash
+sudo kubeadm init --apiserver-advertise-address 10.0.0.1 --ignore-preflight-errors Swap
+```
+Note that we have to tell the setup that we are using the 10.0.0.1 interface on the master node for the api server. Also we suppress errors about running with swap enabled.
+
+This will work for a bit and can take several minutes, once complete it will let you know the join command to use on the worker nodes, something lik the following (we'll alter this slightly before using it):
+```bash
+kubeadm join --token d2d10c.7243e91740e722c7 10.0.0.1:6443 --discovery-token-ca-cert-hash sha256:c121856e77f33e4454efb948cb6f7e408700f744e05432969f1bc4ec5b7d7eae
+```
+It will also instruct you to run the following next on the master node (I added the *rm* at the beginning in case you've run an init before):
+```bash
+rm -rf $HOME/.kube
+mkdir -p $HOME/.kube
+sudo cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
+sudo chown $(id -u):$(id -g) $HOME/.kube/config
+```
+Now we need to prepare the kube-proxy configuration to set it up for using weave-net, run:
+```bash
+kubectl -n kube-system edit ds kube-proxy
+```
+Add in this parameter: *--cluster-cidr=10.32.0.0/12*, i.e.
+```yaml
+containers:
+        - command:
+          - kube-proxy
+          - --kubeconfig=/run/kubeconfig
+          - --cluster-cidr=10.32.0.0/12           <--- Added this
+```
+Now we need to delete the kube-proxy pods so they are recreated, repeat for each node, use *kubectl get pods --all-namespaces -o wide* to find the names assigned:
+```bash
+kubectl -n kube-system delete pods kube-proxy-{NODE_ID}
+```
+Once the kube-proxy pods have restarted with our new config we can install weave-net using the following command:
+```bash
+kubectl apply -f "https://cloud.weave.works/k8s/net?k8s-version=$(kubectl version | base64 | tr -d '\n')"
+```
+Now we can ssh to each of the worker node and join them using the string that the init command gave us earlier, just slightly modified as per the following:
+```bash
+sudo kubeadm join --token d2d10c.7243e91740e722c7 10.0.0.1:6443 --discovery-token-ca-cert-hash sha256:c121856e77f33e4454efb948cb6f7e408700f744e05432969f1bc4ec5b7d7eae --ignore-preflight-errors Swap
+```
+Now you can return to the master node and check for all our new nodes and relevent pods:
+```bash
+kubectl get pods --all-namespaces -o wide
+```
+
+## Useful commands
+1. Found that Raspian doesn't start the ssh server on start-up, use this to fix that:
+```bash
+sudo systemctl enable ssh.socket
+```
+2. Show kubelet start-up details
+```bash
+journalctl -xeu kubelet
+```
+3. Install the *weave* binary to get access to some functions to help investigate weave-net issues
+```bash
+curl -sSL -o /usr/local/bin/weave https://github.com/weaveworks/weave/releases/download/latest_release/weave && chmod +x /usr/local/bin/weave
+```
+4. Get information on all pods in the cluster
+```bash
+kubectl get pods -a -o wide --all-namespaces
+```
+5. Removing a deployment
+```bash
+kubectl --namespace kube-system delete deployment kubernetes-dashboard
+```
+6. Looking at the kube-dns logs
+```bash
+kubectl logs --namespace=kube-system $(kubectl get pods --namespace=kube-system -l k8s-app=kube-dns -o name) -c kubedns
+```
+7. Describe the services running in the default namespace
+```bash
+kubectl describe svc
+```
