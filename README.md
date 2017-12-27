@@ -39,6 +39,10 @@ These are my notes and relevant yaml files for the setup of my Raspberry Pi clus
 
 ## OS
 Use the latest Raspian Stretch Lite img [from here](https://downloads.raspberrypi.org/raspbian_lite_latest)
+You need to make a minor adjustment to the */boot/cmdline.txt* file to enable cgroup memory required by kubernetes, add the following option:
+```bash
+cgroup_memory=1
+```
 
 ## Docker installation
 Don't use apt-get! The commands below assume that your Raspian user is called *pi*
@@ -46,3 +50,51 @@ Don't use apt-get! The commands below assume that your Raspian user is called *p
 sudo curl -sSL https://get.docker.com | sh
 sudo usermod -aG docker pi
 ```
+## Basic networking set-up
+We're using a private network with all pis connected using eth0 via the switch and one master node connected to the main network via WiFi. 
+
+### Set up the master node as a DHCP server
+First set up a static IP address for the cluster's internal network on the master node. Edit */etc/network/interfaces.d/eth0*:
+```properties
+allow-hotplug eth0
+iface eth0 inet static
+    address 10.0.0.1
+    netmask 255.255.255.0
+    broadcast 10.0.0.255
+    gateway 10.0.0.1
+```
+The master node will now be 10.0.0.1 on the internal network (reboot to set this). 
+Next we need to install DHCP on this master node so it will allocate IP addresses to the worker nodes. Run:
+```bash
+apt-get install isc-dhcp-server
+```
+Then configure the DHCP as follows in */etc/dhcp/dhcpd.conf*
+```properties
+# Set a domain name, can basically be anything
+option domain-name "magnum.home";
+# Use Google DNS by default, you can substitute ISP-supplied values here
+option domain-name-servers 8.8.8.8, 8.8.4.4;
+# We'll use 10.0.0.X for our subnet
+subnet 10.0.0.0 netmask 255.255.255.0 {
+    range 10.0.0.1 10.0.0.10;
+    option subnet-mask 255.255.255.0;
+    option broadcast-address 10.0.0.255;
+    option routers 10.0.0.1;
+}
+default-lease-time 600;
+max-lease-time 7200;
+authoritative;
+```
+Then restart the DHCP server with:
+```bash
+sudo systemctl restart dhcpd
+```
+Now the master node should be handing out IP addresses. You can test this by hooking up a second machine to the switch via the Ethernet. This second machine should get the address 10.0.0.2 from the DHCP server.
+
+The final step in setting up networking is setting up network address translation (NAT) so that the worker nodes can reach the main network. Edit */etc/rc.local* (or equivilant) and add iptables rules for forwarding eth0 to wlan0 and back.
+```bash
+iptables -t nat -A POSTROUTING -o wlan0 -j MASQUERADE
+iptables -A FORWARD -i wlan0 -o eth0 -m state --state RELATED,ESTABLISHED -j ACCEPT
+iptables -A FORWARD -i eth0 -o wlan0 -j ACCEPT
+```
+At this point the remaining worker nodes can be plugged in and get their allocated email addresses, you can se that they are allocated the correct IP addresses by checking */var/lib/dhcp/dhcpd.leases* on the master node.
