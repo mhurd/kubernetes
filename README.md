@@ -104,23 +104,27 @@ apt-get install -y kubelet kubeadm kubectl kubernetes-cni
 Repeat this for all the nodes.
 
 ## Setting up the Kubernetes Cluster
-On the master node (the one running DHCP and connected to the internet) we need to make some changes to the defaults systemd scripting as we are going to use weave-net for pod networking and we also want to suppress error about running with swap enabled.
+Note, to undo this initialisation so you can run init again (I did this *many* times whilst trying to get all this working) run the following on the master node and on each of the joined worker nodes:
+```bash
+sudo kubeadm reset
+```
+On the master node (the one running DHCP and connected to the main network via WiFi) we need to make some changes to the default systemd scripts as we are going to use weave-net for pod networking and we also want to suppress error about running with swap enabled.
 ```bash
 sudo vim /etc/systemd/system/kubelet.service.d/10-kubeadm.conf
 ```
 Add *--fail-swap-on=false* to the args in ExecStart and also remove $KUBELET_NETWORK_ARGS from ExecStart. Repeat this on all the nodes.
 
-Now use the kubeadm init command to bootstrap the cluster from the master node:
+Now on the master node use the kubeadm init command to bootstrap the cluster:
 ```bash
 sudo kubeadm init --apiserver-advertise-address 10.0.0.1 --ignore-preflight-errors Swap
 ```
 Note that we have to tell the setup that we are using the 10.0.0.1 interface on the master node for the api server. Also we suppress errors about running with swap enabled.
 
-This will work for a bit and can take several minutes, once complete it will let you know the join command to use on the worker nodes, something lik the following (we'll alter this slightly before using it):
+This can take several minutes, once complete it will let you know the join command to use on the worker nodes, something like the following but with different token/hash (we'll alter this slightly before using it):
 ```bash
 kubeadm join --token d2d10c.7243e91740e722c7 10.0.0.1:6443 --discovery-token-ca-cert-hash sha256:c121856e77f33e4454efb948cb6f7e408700f744e05432969f1bc4ec5b7d7eae
 ```
-It will also instruct you to run the following next on the master node (I added the *rm* at the beginning in case you've run an init before):
+It will also instruct you to run the following on the master node (I added the *rm* at the beginning in case you've run an init before):
 ```bash
 rm -rf $HOME/.kube
 mkdir -p $HOME/.kube
