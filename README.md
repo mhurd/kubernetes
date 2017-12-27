@@ -91,10 +91,27 @@ sudo systemctl restart dhcpd
 ```
 Now the master node should be handing out IP addresses. You can test this by hooking up a second machine to the switch via the Ethernet. This second machine should get the address 10.0.0.2 from the DHCP server.
 
+### Private to main network routing
 The final step in setting up networking is setting up network address translation (NAT) so that the worker nodes can reach the main network. Edit */etc/rc.local* (or equivilant) and add iptables rules for forwarding eth0 to wlan0 and back.
 ```bash
 iptables -t nat -A POSTROUTING -o wlan0 -j MASQUERADE
 iptables -A FORWARD -i wlan0 -o eth0 -m state --state RELATED,ESTABLISHED -j ACCEPT
 iptables -A FORWARD -i eth0 -o wlan0 -j ACCEPT
 ```
-At this point the remaining worker nodes can be plugged in and get their allocated email addresses, you can se that they are allocated the correct IP addresses by checking */var/lib/dhcp/dhcpd.leases* on the master node.
+At this point the remaining worker nodes can be plugged in and get their allocated IP addresses, you can se that they are allocated the correct IP addresses by checking */var/lib/dhcp/dhcpd.leases* on the master node.
+
+## Installing Kubernetes
+Add the encryption key for the packages:
+```bash
+curl -s https://packages.cloud.google.com/apt/doc/apt-key.gpg | apt-key add -
+```
+Then add the repository to the system:
+```bash
+echo "deb http://apt.kubernetes.io/ kubernetes-xenial main" >> /etc/apt/sources.list.d/kubernetes.list
+```
+Finally, update and install the Kubernetes tools. This will also update all packages on the system.
+```bash
+apt-get update
+apt-get upgrade
+apt-get install -y kubelet kubeadm kubectl kubernetes-cni
+```
