@@ -1,6 +1,16 @@
 # kubernetes
 
-These are my notes and relevant yaml files for the setup of my Raspberry Pi cluster (4x Raspberry Pi 3 Model B's).
+These are my notes and relevant yaml files for the setup of my Raspberry Pi cluster (4x Raspberry Pi 3 Model B's). Note this is relevant for these versions of Kubernetes and Docker:
+
+Kubernetes: 
+```text
+&version.Info{Major:"1", Minor:"9", GitVersion:"v1.9.0", GitCommit:"925c127ec6b946659ad0fd596fa959be43f0cc05", GitTreeState:"clean", BuildDate:"2017-12-15T20:55:30Z", GoVersion:"go1.9.2", Compiler:"gc", Platform:"linux/arm"}
+```
+
+Docker:
+```text
+Docker version 17.11.0-ce, build 1caf76c
+```
 
 ## Raspberry Pi Cluster shopping list
 
