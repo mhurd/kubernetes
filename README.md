@@ -132,7 +132,7 @@ Note that we have to tell the setup that we are using the 10.0.0.1 interface on 
 
 This can take several minutes, once complete it will let you know the join command to use on the worker nodes, something like the following but with different token/hash (we'll alter this slightly before using it):
 ```bash
-kubeadm join --token 4075ac.6cdff0b4a90598f8 10.0.0.1:6443 --discovery-token-ca-cert-hash sha256:d17cfee29dfc89cd240e0b03bcf8d944099ba3ab6713ef9b2da95a98e211d10f
+kubeadm join --token 3d7f5a.5b28483cb18857ef 10.0.0.1:6443 --discovery-token-ca-cert-hash sha256:78da1d32aac1bce32be2222cfb0ccc0c37d52399df18df7daa9425c1d2df1d91
 ```
 It will also instruct you to run the following on the master node (I added the *rm* at the beginning in case you've run an init before):
 ```bash
@@ -167,7 +167,7 @@ kubectl apply -f https://raw.githubusercontent.com/coreos/flannel/master/Documen
 ```
 Now we can ssh to each of the worker node and join them using the string that the init command gave us earlier, just slightly modified as per the following:
 ```bash
-sudo kubeadm join --token 4075ac.6cdff0b4a90598f8 10.0.0.1:6443 --discovery-token-ca-cert-hash sha256:d17cfee29dfc89cd240e0b03bcf8d944099ba3ab6713ef9b2da95a98e211d10f --ignore-preflight-errors Swap
+sudo kubeadm join --token 3d7f5a.5b28483cb18857ef 10.0.0.1:6443 --discovery-token-ca-cert-hash sha256:78da1d32aac1bce32be2222cfb0ccc0c37d52399df18df7daa9425c1d2df1d91 --ignore-preflight-errors Swap
 ```
 Now you can return to the master node and check for all our new nodes and relevent pods:
 ```bash
