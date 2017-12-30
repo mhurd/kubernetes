@@ -91,6 +91,8 @@ The final step in setting up networking is setting up network address translatio
 iptables -t nat -A POSTROUTING -o wlan0 -j MASQUERADE
 iptables -A FORWARD -i wlan0 -o eth0 -m state --state RELATED,ESTABLISHED -j ACCEPT
 iptables -A FORWARD -i eth0 -o wlan0 -j ACCEPT
+# also add a route to keep the default 10.96.0.0/12 service network inside the private network
+ip route add 10.96.0.0/12 dev eth0
 ```
 At this point the remaining worker nodes can be plugged in and get their allocated IP addresses, you can se that they are allocated the correct IP addresses by checking */var/lib/dhcp/dhcpd.leases* on the master node.
 
