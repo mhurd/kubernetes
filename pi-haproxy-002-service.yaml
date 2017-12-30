@@ -1,0 +1,14 @@
+kind: Service
+apiVersion: v1
+metadata:
+  name: pi-haproxy
+spec:
+  type: NodePort 
+  selector:
+    role: pi-haproxy
+  ports:
+  - protocol: TCP
+    name: psql
+    port: 5433
+    targetPort: 5433
+    nodePort: 30001

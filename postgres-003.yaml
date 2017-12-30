@@ -1,0 +1,42 @@
+apiVersion: v1
+kind: ReplicationController
+metadata:
+  name: postgres
+spec:
+  replicas: 1
+  selector:
+    role: postgres
+  template:
+    metadata:
+      labels:
+        role: postgres
+    spec:
+      containers:
+      - name: postgres
+        image: postgres:10.1
+        env:
+          - name: POSTGRES_USER
+            value: pi
+          - name: POSTGRES_PASSWORD
+            value: example_password
+          - name: POSTGRES_ADMIN_PASSWORD
+            value: example_password
+        securityContext:
+          privileged: true
+        volumeMounts:
+          - mountPath: /var/lib/postgresql/data
+            name: postgres-nfs
+        readinessProbe:
+          tcpSocket:
+            port: 5432
+          initialDelaySeconds: 10
+          periodSeconds: 30
+        livenessProbe:
+          tcpSocket:
+            port: 5432
+          initialDelaySeconds: 15
+          periodSeconds: 30
+      volumes:
+        - name: postgres-nfs
+          persistentVolumeClaim:
+            claimName: postgres-nfs
