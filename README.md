@@ -145,7 +145,7 @@ Now we need to modify the flannel config to account for the required arm archite
 ```bash
 curl https://raw.githubusercontent.com/coreos/flannel/master/Documentation/kube-flannel.yml >> kube-flannel.yml
 ```
-Replace any occurances of *amd64* with *arm*. Also add the required interface option the the container setup: *--cluster-cidr=10.32.0.0/12*, i.e.
+Replace any occurances of *amd64* with *arm*. Also add the required interface option the the container setup: *--iface=eth0*, i.e.
 ```yaml
 containers:
       - name: kube-flannel
