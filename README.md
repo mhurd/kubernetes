@@ -91,8 +91,6 @@ The final step in setting up networking is setting up network address translatio
 iptables -t nat -A POSTROUTING -o wlan0 -j MASQUERADE
 iptables -A FORWARD -i wlan0 -o eth0 -m state --state RELATED,ESTABLISHED -j ACCEPT
 iptables -A FORWARD -i eth0 -o wlan0 -j ACCEPT
-# also add a route to keep the default 10.96.0.0/12 service network inside the private network
-ip route add 10.96.0.0/12 dev eth0
 ```
 At this point the remaining worker nodes can be plugged in and get their allocated IP addresses, you can se that they are allocated the correct IP addresses by checking */var/lib/dhcp/dhcpd.leases* on the master node.
 
@@ -128,7 +126,7 @@ Add *--fail-swap-on=false* to the args in ExecStart and also remove $KUBELET_NET
 
 Now on the master node use the kubeadm init command to bootstrap the cluster:
 ```bash
-sudo kubeadm init --apiserver-advertise-address 10.0.0.1 --ignore-preflight-errors Swap
+sudo kubeadm init --apiserver-advertise-address 10.0.0.1 --pod-network-cidr=10.244.0.0/16 --ignore-preflight-errors Swap
 ```
 Note that we have to tell the setup that we are using the 10.0.0.1 interface on the master node for the api server. Also we suppress errors about running with swap enabled.
 
@@ -143,25 +141,29 @@ mkdir -p $HOME/.kube
 sudo cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
 sudo chown $(id -u):$(id -g) $HOME/.kube/config
 ```
-Now we need to prepare the kube-proxy configuration to set it up for using weave-net, run:
+Now we need to modify the flannel config to account for the required arm architecture and to force the correct port for use in the networking (flannel uses the first interface - for master this is the external wlan0 interface which is incorrect). Download the flannel yaml locally:
 ```bash
-kubectl -n kube-system edit ds kube-proxy
+curl https://raw.githubusercontent.com/coreos/flannel/master/Documentation/kube-flannel.yml >> kube-flannel.yml
 ```
-Add in this parameter: *--cluster-cidr=10.32.0.0/12*, i.e.
+Replace any occurances of *amd64* with *arm*. Also add the required interface option the the container setup: *--cluster-cidr=10.32.0.0/12*, i.e.
 ```yaml
 containers:
-        - command:
-          - kube-proxy
-          - --kubeconfig=/run/kubeconfig
-          - --cluster-cidr=10.32.0.0/12           <--- Added this
+      - name: kube-flannel
+        image: quay.io/coreos/flannel:v0.9.1-arm
+        command:
+        - /opt/bin/flanneld
+        args:
+        - --ip-masq
+        - --kube-subnet-mgr
+        - --iface=eth0                      <--- added this
 ```
-Now we need to delete the kube-proxy pods so they are recreated, repeat for each node, use *kubectl get pods --all-namespaces -o wide* to find the names assigned:
+Now we can install the daemon set using the modified file:
 ```bash
-kubectl -n kube-system delete pods kube-proxy-{NODE_ID}
+kubectl apply -f kube-flannel.yml
 ```
-Once the kube-proxy pods have restarted with our new config we can install weave-net using the following command:
+And add the RBAC config too:
 ```bash
-kubectl apply -f "https://cloud.weave.works/k8s/net?k8s-version=$(kubectl version | base64 | tr -d '\n')"
+kubectl apply -f https://raw.githubusercontent.com/coreos/flannel/master/Documentation/k8s-manifests/kube-flannel-rbac.yml
 ```
 Now we can ssh to each of the worker node and join them using the string that the init command gave us earlier, just slightly modified as per the following:
 ```bash
@@ -212,3 +214,8 @@ kubectl exec -ti busybox -- /bin/sh
 10. Install a yaml config file
 ```bash
 kubectl apply -f my_file.yaml
+```
+11. Allowing pods to be scheduled on master:
+```bash
+kubectl taint nodes --all node-role.kubernetes.io/master-
+```
