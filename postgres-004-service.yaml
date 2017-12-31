@@ -12,5 +12,3 @@ spec:
     port: 5432
     targetPort: 5432
     nodePort: 30000
-#  externalIPs:
-#  - 10.0.0.1 
