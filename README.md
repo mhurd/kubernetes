@@ -167,7 +167,11 @@ Now we can install the daemon set using the modified file:
 ```bash
 kubectl apply -f kube-flannel.yml
 ```
-
+### Setting up weave-net for pod networking
+Or as an alternative to Flannel you can install weave-net instead:
+```bash
+kubectl apply -f "https://cloud.weave.works/k8s/net?k8s-version=$(kubectl version | base64 | tr -d '\n')"
+```
 ### Joining the worker nodes to the network
 Now we can ssh to each of the worker node and join them using the string that the init command gave us earlier, just slightly modified as per the following:
 ```bash
