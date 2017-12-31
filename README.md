@@ -124,7 +124,7 @@ sudo vim /etc/systemd/system/kubelet.service.d/10-kubeadm.conf
 ```
 Add *--fail-swap-on=false* to the args in ExecStart and also remove $KUBELET_NETWORK_ARGS from ExecStart. Repeat this on all the nodes.
 
-Now on the master node use the kubeadm init command to bootstrap the cluster:
+Now on the master node use the kubeadm init command to bootstrap the cluster, only add the *--pod-network-cidr* option if you are going to use Flannel pod networking, *not* for weave-net:
 ```bash
 sudo kubeadm init --apiserver-advertise-address 10.0.0.1 --pod-network-cidr=10.244.0.0/16 --ignore-preflight-errors Swap
 ```
@@ -132,7 +132,7 @@ Note that we have to tell the setup that we are using the 10.0.0.1 interface on 
 
 This can take several minutes, once complete it will let you know the join command to use on the worker nodes, something like the following but with different token/hash (we'll alter this slightly before using it):
 ```bash
-kubeadm join --token 4075ac.6cdff0b4a90598f8 10.0.0.1:6443 --discovery-token-ca-cert-hash sha256:d17cfee29dfc89cd240e0b03bcf8d944099ba3ab6713ef9b2da95a98e211d10f
+kubeadm join --token 3d7f5a.5b28483cb18857ef 10.0.0.1:6443 --discovery-token-ca-cert-hash sha256:78da1d32aac1bce32be2222cfb0ccc0c37d52399df18df7daa9425c1d2df1d91
 ```
 It will also instruct you to run the following on the master node (I added the *rm* at the beginning in case you've run an init before):
 ```bash
@@ -141,6 +141,13 @@ mkdir -p $HOME/.kube
 sudo cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
 sudo chown $(id -u):$(id -g) $HOME/.kube/config
 ```
+### Prepare for Pod network
+This is required to be set for various networking solutions:
+```bash
+sudo sysctl net.bridge.bridge-nf-call-iptables=1
+```
+
+### Setting up Flannel for pod networking
 Now we need to modify the flannel config to account for the required arm architecture and to force the correct port for use in the networking (flannel uses the first interface - for master this is the external wlan0 interface which is incorrect). Download the flannel yaml locally:
 ```bash
 curl https://raw.githubusercontent.com/coreos/flannel/master/Documentation/kube-flannel.yml >> kube-flannel.yml
@@ -157,17 +164,36 @@ containers:
         - --kube-subnet-mgr
         - --iface=eth0                      <--- added this
 ```
+First add the RBAC config:
+```bash
+kubectl apply -f https://raw.githubusercontent.com/coreos/flannel/master/Documentation/k8s-manifests/kube-flannel-rbac.yml
+```
 Now we can install the daemon set using the modified file:
 ```bash
 kubectl apply -f kube-flannel.yml
 ```
-And add the RBAC config too:
+### Setting up weave-net for pod networking
+Or as an alternative to Flannel you can install weave-net instead. 
+We need to prepare the kube-proxy configuration to set it up for using weave-net, run:
 ```bash
-kubectl apply -f https://raw.githubusercontent.com/coreos/flannel/master/Documentation/k8s-manifests/kube-flannel-rbac.yml
+kubectl -n kube-system edit ds kube-proxy
 ```
+Add in this parameter: --cluster-cidr=10.32.0.0/12, i.e.
+```bash
+containers:
+        - command:
+          - kube-proxy
+          - --kubeconfig=/run/kubeconfig
+          - --cluster-cidr=10.32.0.0/12           <--- Added this
+```
+Then apply the networking.
+```bash
+kubectl apply -f "https://cloud.weave.works/k8s/net?k8s-version=$(kubectl version | base64 | tr -d '\n')"
+```
+### Joining the worker nodes to the network
 Now we can ssh to each of the worker node and join them using the string that the init command gave us earlier, just slightly modified as per the following:
 ```bash
-sudo kubeadm join --token 4075ac.6cdff0b4a90598f8 10.0.0.1:6443 --discovery-token-ca-cert-hash sha256:d17cfee29dfc89cd240e0b03bcf8d944099ba3ab6713ef9b2da95a98e211d10f --ignore-preflight-errors Swap
+sudo kubeadm join --token 3d7f5a.5b28483cb18857ef 10.0.0.1:6443 --discovery-token-ca-cert-hash sha256:78da1d32aac1bce32be2222cfb0ccc0c37d52399df18df7daa9425c1d2df1d91 --ignore-preflight-errors Swap
 ```
 Now you can return to the master node and check for all our new nodes and relevent pods:
 ```bash
