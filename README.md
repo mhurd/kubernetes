@@ -200,6 +200,7 @@ Repeat for all the nodes, you shoudl probably reboot all the nodes now to get ev
 
 ### Setting up weave-net for pod networking
 **NOTE could not get pod networking working with weave-net, moved to Flannel in the end**
+
 Or as an alternative to Flannel you can install weave-net instead. 
 We need to prepare the kube-proxy configuration to set it up for using weave-net, run:
 ```bash
