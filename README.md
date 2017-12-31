@@ -174,7 +174,32 @@ Now we can install the daemon set using the modified file:
 ```bash
 kubectl apply -f kube-flannel.yml
 ```
+Now we need to set the docker bridge interface to use the Flannel subnet, run the following on each of the nodes:
+```bash
+cat /run/flannel/subnet.env
+```
+This will output some Flannel properties we can use:
+```text
+FLANNEL_NETWORK=10.244.0.0/16
+FLANNEL_SUBNET=10.244.0.1/24
+FLANNEL_MTU=1450
+FLANNEL_IPMASQ=true
+```
+Now create a docker config file in the following location and, using the details from flannel, set the *bip* and *mtu* properties:
+```bash
+sudo vim /etc/docker/daemon.json
+```
+For the properties shown above we'd put the following in the *daemon.json* file:
+```text
+{
+    "bip": "10.244.0.1/24",
+    "mtu": 1450
+}
+```
+Repeat for all the nodes, you shoudl probably reboot all the nodes now to get everything restarted.
+
 ### Setting up weave-net for pod networking
+**NOTE could not get pod networking working with weave-net, moved to Flannel in the end**
 Or as an alternative to Flannel you can install weave-net instead. 
 We need to prepare the kube-proxy configuration to set it up for using weave-net, run:
 ```bash
