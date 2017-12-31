@@ -12,6 +12,8 @@ Docker:
 Docker version 17.11.0-ce, build 1caf76c
 ```
 
+**NOTE that I can't get the pod networking working with either Flannel or weave-net so DNS lookups fail and service wiring doesn't work. Not idea what the issue is. Giving up for now until Kubernetes is more mature, seems pretty flaky at the moment...**
+
 ## Raspberry Pi Cluster shopping list
 
 * [Multi-Pi Stackable Raspberry Pi Case (x2)](https://www.modmypi.com/raspberry-pi/cases-183/raspberry-pi-b-plus2-and-3-cases-1122/stacking-cases-1132/multi-pi-stackable-raspberry-pi-case/?search=stackab) 
