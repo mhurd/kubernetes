@@ -124,7 +124,7 @@ sudo vim /etc/systemd/system/kubelet.service.d/10-kubeadm.conf
 ```
 Add *--fail-swap-on=false* to the args in ExecStart and also remove $KUBELET_NETWORK_ARGS from ExecStart. Repeat this on all the nodes.
 
-Now on the master node use the kubeadm init command to bootstrap the cluster:
+Now on the master node use the kubeadm init command to bootstrap the cluster, only add the *--pod-network-cidr* option if you are going to use Flannel pod networking, *not* for weave-net:
 ```bash
 sudo kubeadm init --apiserver-advertise-address 10.0.0.1 --pod-network-cidr=10.244.0.0/16 --ignore-preflight-errors Swap
 ```
@@ -140,6 +140,11 @@ rm -rf $HOME/.kube
 mkdir -p $HOME/.kube
 sudo cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
 sudo chown $(id -u):$(id -g) $HOME/.kube/config
+```
+### Prepare for Pod network
+This is required to be set for various networking solutions:
+```bash
+sudo sysctl net.bridge.bridge-nf-call-iptables=1
 ```
 
 ### Setting up Flannel for pod networking
