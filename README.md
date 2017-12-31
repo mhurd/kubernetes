@@ -168,7 +168,20 @@ Now we can install the daemon set using the modified file:
 kubectl apply -f kube-flannel.yml
 ```
 ### Setting up weave-net for pod networking
-Or as an alternative to Flannel you can install weave-net instead:
+Or as an alternative to Flannel you can install weave-net instead. 
+We need to prepare the kube-proxy configuration to set it up for using weave-net, run:
+```bash
+kubectl -n kube-system edit ds kube-proxy
+```
+Add in this parameter: --cluster-cidr=10.32.0.0/12, i.e.
+```bash
+containers:
+        - command:
+          - kube-proxy
+          - --kubeconfig=/run/kubeconfig
+          - --cluster-cidr=10.32.0.0/12           <--- Added this
+```
+Then apply the networking.
 ```bash
 kubectl apply -f "https://cloud.weave.works/k8s/net?k8s-version=$(kubectl version | base64 | tr -d '\n')"
 ```
