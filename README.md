@@ -12,7 +12,7 @@ Docker:
 Docker version 17.11.0-ce, build 1caf76c
 ```
 
-**NOTE that I can't get the pod networking working with either Flannel or weave-net so DNS lookups fail and service wiring doesn't work. Not idea what the issue is. Giving up for now until Kubernetes is more mature, seems pretty flaky at the moment...**
+**NOTE that I can't get the pod networking working with either Flannel or weave-net so DNS lookups fail and service wiring doesn't work. Not idea what the issue is. Giving up for now until Kubernetes is more mature, seems pretty unstable at the moment...**
 
 ## Raspberry Pi Cluster shopping list
 
