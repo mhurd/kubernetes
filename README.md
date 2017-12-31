@@ -195,7 +195,7 @@ kubectl apply -f "https://cloud.weave.works/k8s/net?k8s-version=$(kubectl versio
 ### Joining the worker nodes to the network
 Now we can ssh to each of the worker node and join them using the string that the init command gave us earlier, just slightly modified as per the following:
 ```bash
-sudo kubeadm join --token 3d7f5a.5b28483cb18857ef 10.0.0.1:6443 --discovery-token-ca-cert-hash sha256:78da1d32aac1bce32be2222cfb0ccc0c37d52399df18df7daa9425c1d2df1d91 --ignore-preflight-errors Swap
+sudo kubeadm join --token 487b29.d6b61fd342f2143b 10.0.0.1:6443 --discovery-token-ca-cert-hash sha256:944372bf8e59936302783cf870f1e1f29509535522f0cd6fb96a2aad4a52428c --ignore-preflight-errors Swap
 ```
 Now you can return to the master node and check for all our new nodes and relevent pods:
 ```bash
