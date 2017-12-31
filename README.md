@@ -12,8 +12,6 @@ Docker:
 Docker version 17.11.0-ce, build 1caf76c
 ```
 
-**NOTE that I can't get the pod networking working with either Flannel or weave-net so DNS lookups fail and service wiring doesn't work. Not idea what the issue is. Giving up for now until Kubernetes is more mature, seems pretty unstable at the moment...**
-
 ## Raspberry Pi Cluster shopping list
 
 * [Multi-Pi Stackable Raspberry Pi Case (x2)](https://www.modmypi.com/raspberry-pi/cases-183/raspberry-pi-b-plus2-and-3-cases-1122/stacking-cases-1132/multi-pi-stackable-raspberry-pi-case/?search=stackab) 
@@ -174,7 +172,7 @@ Now we can install the daemon set using the modified file:
 ```bash
 kubectl apply -f kube-flannel.yml
 ```
-Now we need to set the docker bridge interface to use the Flannel subnet, run the following on each of the nodes:
+Now we need to set the docker bridge interface to use the correct Flannel subnet, run the following on each of the nodes:
 ```bash
 cat /run/flannel/subnet.env
 ```
