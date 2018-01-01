@@ -45,7 +45,7 @@ sudo curl -sSL https://get.docker.com | sh
 sudo usermod -aG docker pi
 ```
 ## Basic networking set-up
-We're using a private network with all pis connected using eth0 via the switch and one master node connected to the main network via WiFi. 
+We're using a private network with all Pis connected using eth0 via the switch and one master node connected to the main network via WiFi. 
 
 ### Set up the master node as a DHCP server
 First set up a static IP address for the cluster's internal network on the master node. Edit */etc/network/interfaces.d/eth0*:
@@ -183,7 +183,7 @@ FLANNEL_SUBNET=10.244.0.1/24
 FLANNEL_MTU=1450
 FLANNEL_IPMASQ=true
 ```
-Now create a docker config file in the following location and, using the details from flannel, set the *bip* and *mtu* properties:
+Now create a docker config file in the following location and, using the *FLANNEL_SUBNET* and *FLANNEL_MTU* details from flannel, set the *bip* and *mtu* properties:
 ```bash
 sudo vim /etc/docker/daemon.json
 ```
