@@ -9,10 +9,8 @@ Kubernetes:
 
 Docker:
 ```text
-Docker version 17.11.0-ce, build 1caf76c
+Docker version 17.12.0-ce, build c97c6d6
 ```
-
-**NOTE that I can't get the pod networking working with either Flannel or weave-net so DNS lookups fail and service wiring doesn't work. Not idea what the issue is. Giving up for now until Kubernetes is more mature, seems pretty unstable at the moment...**
 
 ## Raspberry Pi Cluster shopping list
 
@@ -47,7 +45,7 @@ sudo curl -sSL https://get.docker.com | sh
 sudo usermod -aG docker pi
 ```
 ## Basic networking set-up
-We're using a private network with all pis connected using eth0 via the switch and one master node connected to the main network via WiFi. 
+We're using a private network with all Pis connected using eth0 via the switch and one master node connected to the main network via WiFi. 
 
 ### Set up the master node as a DHCP server
 First set up a static IP address for the cluster's internal network on the master node. Edit */etc/network/interfaces.d/eth0*:
@@ -174,7 +172,7 @@ Now we can install the daemon set using the modified file:
 ```bash
 kubectl apply -f kube-flannel.yml
 ```
-Now we need to set the docker bridge interface to use the Flannel subnet, run the following on each of the nodes:
+Now we need to set the docker bridge interface to use the correct Flannel subnet, run the following on each of the nodes:
 ```bash
 cat /run/flannel/subnet.env
 ```
@@ -185,7 +183,7 @@ FLANNEL_SUBNET=10.244.0.1/24
 FLANNEL_MTU=1450
 FLANNEL_IPMASQ=true
 ```
-Now create a docker config file in the following location and, using the details from flannel, set the *bip* and *mtu* properties:
+Now create a docker config file in the following location and, using the *FLANNEL_SUBNET* and *FLANNEL_MTU* details from flannel, set the *bip* and *mtu* properties:
 ```bash
 sudo vim /etc/docker/daemon.json
 ```
@@ -199,7 +197,7 @@ For the properties shown above we'd put the following in the *daemon.json* file:
 Repeat for all the nodes, you shoudl probably reboot all the nodes now to get everything restarted.
 
 ### Setting up weave-net for pod networking
-**NOTE could not get pod networking working with weave-net, moved to Flannel in the end**
+**NOTE could not get pod networking working with weave-net, moved to Flannel in the end. No errors in the weave-net logs, but trying a nslookup via a busybox container in the cluster failed (seemed like it couldn't get to the kube-dns service at 10.96.0.10)**
 
 Or as an alternative to Flannel you can install weave-net instead. 
 We need to prepare the kube-proxy configuration to set it up for using weave-net, run:
