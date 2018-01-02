@@ -197,7 +197,7 @@ For the properties shown above we'd put the following in the *daemon.json* file:
 Repeat for all the nodes, you shoudl probably reboot all the nodes now to get everything restarted.
 
 ### Setting up weave-net for pod networking
-**NOTE could not get pod networking working with weave-net, moved to Flannel in the end**
+**NOTE could not get pod networking working with weave-net, moved to Flannel in the end. No errors in the weave-net logs, but trying a nslookup via a busybox container in the cluster failed (seemed like it couldn't get to the kube-dns service at 10.96.0.10)**
 
 Or as an alternative to Flannel you can install weave-net instead. 
 We need to prepare the kube-proxy configuration to set it up for using weave-net, run:
