@@ -9,7 +9,7 @@ Kubernetes:
 
 Docker:
 ```text
-Docker version 17.11.0-ce, build 1caf76c
+Docker version 17.12.0-ce, build c97c6d6
 ```
 
 ## Raspberry Pi Cluster shopping list
