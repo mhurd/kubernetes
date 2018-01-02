@@ -18,25 +18,30 @@ spec:
           - name: POSTGRES_USER
             value: pi
           - name: POSTGRES_PASSWORD
-            value: example_password
+            value: pi
           - name: POSTGRES_ADMIN_PASSWORD
-            value: example_password
+            value: pi
         securityContext:
           privileged: true
         volumeMounts:
           - mountPath: /var/lib/postgresql/data
             name: postgres-nfs
+          - mountPath: /mnt/common
+            name: postgres-nfs-common
         readinessProbe:
           tcpSocket:
             port: 5432
           initialDelaySeconds: 10
-          periodSeconds: 30
+          periodSeconds: 15
         livenessProbe:
           tcpSocket:
             port: 5432
-          initialDelaySeconds: 15
-          periodSeconds: 30
+          initialDelaySeconds: 30
+          periodSeconds: 15
       volumes:
         - name: postgres-nfs
           persistentVolumeClaim:
-            claimName: postgres-nfs
+            claimName: postgres-pvc
+        - name: postgres-nfs-common
+          persistentVolumeClaim:
+            claimName: postgres-pvc-common
