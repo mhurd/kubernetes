@@ -194,7 +194,7 @@ For the properties shown above we'd put the following in the *daemon.json* file:
     "mtu": 1450
 }
 ```
-Repeat for all the nodes, you shoudl probably reboot all the nodes now to get everything restarted.
+Repeat for all the nodes, you should probably reboot all the nodes now to get everything restarted.
 
 ### Setting up weave-net for pod networking
 **NOTE could not get pod networking working with weave-net, moved to Flannel in the end. No errors in the weave-net logs, but trying a nslookup via a busybox container in the cluster failed (seemed like it couldn't get to the kube-dns service at 10.96.0.10)**
@@ -245,7 +245,7 @@ You can now access the dashboard from the machine your ssh-ing from at the follo
 ```text
 http://localhost:8001/api/v1/namespaces/kube-system/services/https:kubernetes-dashboard:/proxy/#!/overview?namespace=default
 ```
-To authenticate you'll need a bearer token for the dashboard user (with the elevated permissions), to find this run (with the correct dashobard identifier for your system):
+To authenticate you'll need a bearer token for the dashboard user (with the elevated permissions), to find this run (with the correct dashboard identifier for your system):
 ```bash
 kubectl -n kube-system describe secret kubernetes-dashboard-token-gbhln
 ```
