@@ -226,6 +226,31 @@ Now you can return to the master node and check for all our new nodes and releve
 kubectl get pods --all-namespaces -o wide
 ```
 
+## Kubernetes dashboard
+The default kubernetes dashboard needs some modification to set it up for arm. Download the yaml file locally to edit:
+```bash
+curl https://raw.githubusercontent.com/kubernetes/dashboard/master/src/deploy/recommended/kubernetes-dashboard.yaml >> kubernetes-dashboard.yaml
+```
+Now replace any instances of *amd64* with *arm* and apply. I've not looked into authentication in detail yet, for now you can elevate the dashboard user's previlages (not recommended in a serious environment), see: https://github.com/mhurd/kubernetes/blob/master/kubernetes-dashboard-002-admin.yaml, apply this using *kubectl*.
+
+Next to access the dashboard you'll need to ssh tunnel to the master node and map the *8001* port to localhost:
+```bash
+ssh -L 8001:localhost:8001 pi@master
+```
+Once on the master node you can run the kubectl proxy:
+```bash
+kubectl proxy
+```
+You can now access the dashboard from the machine your ssh-ing from at the following URL:
+```text
+http://localhost:8001/api/v1/namespaces/kube-system/services/https:kubernetes-dashboard:/proxy/#!/overview?namespace=default
+```
+To authenticate you'll need a bearer token for the dashboard user (with the elevated permissions), to find this run (with the correct dashobard identifier for your system):
+```bash
+kubectl -n kube-system describe secret kubernetes-dashboard-token-gbhln
+```
+You should now be able to log in using this token.
+
 ## Useful commands
 1. Found that Raspian doesn't start the ssh server on start-up, use this to fix that:
 ```bash
