@@ -234,7 +234,6 @@ Which you should return something like this:
 ```bash
 pi@magnum:~ $ kubectl get pods --all-namespaces -o wide
 NAMESPACE     NAME                                    READY     STATUS    RESTARTS   AGE       IP           NODE
-default       postgres-79c57766c5-tv249               1/1       Running   2          2d        10.244.1.2   bresson
 kube-system   etcd-magnum                             1/1       Running   9          6d        10.0.0.1     magnum
 kube-system   kube-apiserver-magnum                   1/1       Running   5          6d        10.0.0.1     magnum
 kube-system   kube-controller-manager-magnum          1/1       Running   4          6d        10.0.0.1     magnum
@@ -248,7 +247,6 @@ kube-system   kube-proxy-l22td                        1/1       Running   5     
 kube-system   kube-proxy-rbhgw                        1/1       Running   6          6d        10.0.0.5     capa
 kube-system   kube-proxy-x2ttc                        1/1       Running   3          6d        10.0.0.6     parr
 kube-system   kube-scheduler-magnum                   1/1       Running   9          6d        10.0.0.1     magnum
-kube-system   kubernetes-dashboard-588b7f599d-7wlpl   1/1       Running   2          6d        10.244.2.2   capa
 ```
 
 ## Kubernetes dashboard
