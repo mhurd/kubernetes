@@ -32,6 +32,11 @@ You need to make a minor adjustment to the */boot/cmdline.txt* file to enable cg
 ```bash
 cgroup_memory=1
 ```
+Lower the swappiness - rather than completely removing the swap which is recommended for Kuberenetes, we only have 1Gb of RAM to play with. Edit */etc/sysctl.conf* and add:
+```bash
+vm.swappiness = 1
+```
+"1" means it will only use swap when RAM use exceeds 99%. 
 Set up any niceties such as ssh keys for hopping between the nodes:
 ```bash
 ssh-keygen -o -a 100 -t ed25519
@@ -224,6 +229,24 @@ sudo kubeadm join --token 487b29.d6b61fd342f2143b 10.0.0.1:6443 --discovery-toke
 Now you can return to the master node and check for all our new nodes and relevent pods:
 ```bash
 kubectl get pods --all-namespaces -o wide
+```
+Which you should return something like this:
+```bash
+pi@magnum:~ $ kubectl get pods --all-namespaces -o wide
+NAMESPACE     NAME                                    READY     STATUS    RESTARTS   AGE       IP           NODE
+kube-system   etcd-magnum                             1/1       Running   9          6d        10.0.0.1     magnum
+kube-system   kube-apiserver-magnum                   1/1       Running   5          6d        10.0.0.1     magnum
+kube-system   kube-controller-manager-magnum          1/1       Running   4          6d        10.0.0.1     magnum
+kube-system   kube-dns-7b6ff86f69-5mgjr               3/3       Running   9          6d        10.244.3.2   parr
+kube-system   kube-flannel-ds-dz9zf                   1/1       Running   4          6d        10.0.0.5     capa
+kube-system   kube-flannel-ds-k5652                   1/1       Running   4          6d        10.0.0.3     bresson
+kube-system   kube-flannel-ds-vxxz4                   1/1       Running   6          6d        10.0.0.1     magnum
+kube-system   kube-flannel-ds-wkzp6                   1/1       Running   1          6d        10.0.0.6     parr
+kube-system   kube-proxy-65bmw                        1/1       Running   4          6d        10.0.0.3     bresson
+kube-system   kube-proxy-l22td                        1/1       Running   5          6d        10.0.0.1     magnum
+kube-system   kube-proxy-rbhgw                        1/1       Running   6          6d        10.0.0.5     capa
+kube-system   kube-proxy-x2ttc                        1/1       Running   3          6d        10.0.0.6     parr
+kube-system   kube-scheduler-magnum                   1/1       Running   9          6d        10.0.0.1     magnum
 ```
 
 ## Kubernetes dashboard
