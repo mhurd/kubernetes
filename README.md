@@ -32,6 +32,11 @@ You need to make a minor adjustment to the */boot/cmdline.txt* file to enable cg
 ```bash
 cgroup_memory=1
 ```
+Lower the swappiness - rather than completely removing the swap which is recommended for Kuberenetes, we only have 1Gb of RAM to play with. Edit */etc/sysctl.conf* and add:
+```bash
+vm.swappiness = 1
+```
+"1" means it will only use swap when RAM use exceeds 99%. 
 Set up any niceties such as ssh keys for hopping between the nodes:
 ```bash
 ssh-keygen -o -a 100 -t ed25519
