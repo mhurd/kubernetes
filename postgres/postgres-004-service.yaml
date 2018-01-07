@@ -1,0 +1,14 @@
+kind: Service
+apiVersion: v1
+metadata:
+  name: postgres
+spec:
+  type: NodePort 
+  selector:
+    role: postgres
+  ports:
+  - protocol: TCP
+    name: psql
+    port: 5432
+    targetPort: 5432
+    nodePort: 30000
