@@ -28,9 +28,9 @@ Docker version 17.12.0-ce, build c97c6d6
 
 ## OS
 Use the latest Raspian Stretch Lite img [from here](https://downloads.raspberrypi.org/raspbian_lite_latest)
-You need to make a minor adjustment to the */boot/cmdline.txt* file to enable cgroup memory required by kubernetes, add the following option:
+You need to make a minor adjustment to the */boot/cmdline.txt* file to enable cgroup memory required by kubernetes, add the following options to the beginning:
 ```bash
-cgroup_memory=1
+cgroup_enable=memory cgroup_memory=1
 ```
 Lower the swappiness - rather than completely removing the swap which is recommended for Kuberenetes, we only have 1Gb of RAM to play with. Edit */etc/sysctl.conf* and add:
 ```bash
@@ -137,7 +137,7 @@ Note that we have to tell the setup that we are using the 10.0.0.1 interface on 
 
 This can take several minutes, once complete it will let you know the join command to use on the worker nodes, something like the following but with different token/hash (we'll alter this slightly before using it):
 ```bash
-kubeadm join --token 3d7f5a.5b28483cb18857ef 10.0.0.1:6443 --discovery-token-ca-cert-hash sha256:78da1d32aac1bce32be2222cfb0ccc0c37d52399df18df7daa9425c1d2df1d91
+kubeadm join 10.0.0.1:6443 --token u9dmqu.joa4psqvzktnisoz --discovery-token-ca-cert-hash sha256:a354eeca82f3a89b47777255e70b256f252f5a90896290884f7ffc2927444301
 ```
 It will also instruct you to run the following on the master node (I added the *rm* at the beginning in case you've run an init before):
 ```bash
@@ -224,7 +224,7 @@ kubectl apply -f "https://cloud.weave.works/k8s/net?k8s-version=$(kubectl versio
 ### Joining the worker nodes to the network
 Now we can ssh to each of the worker node and join them using the string that the init command gave us earlier, just slightly modified as per the following:
 ```bash
-sudo kubeadm join --token 487b29.d6b61fd342f2143b 10.0.0.1:6443 --discovery-token-ca-cert-hash sha256:944372bf8e59936302783cf870f1e1f29509535522f0cd6fb96a2aad4a52428c --ignore-preflight-errors Swap
+kubeadm join 10.0.0.1:6443 --token u9dmqu.joa4psqvzktnisoz --discovery-token-ca-cert-hash sha256:a354eeca82f3a89b47777255e70b256f252f5a90896290884f7ffc2927444301 --ignore-preflight-errors Swap
 ```
 Now you can return to the master node and check for all our new nodes and relevent pods:
 ```bash
