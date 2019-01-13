@@ -43,6 +43,7 @@ vm.swappiness = 1
 Set up any niceties such as ssh keys for hopping between the nodes:
 ```bash
 ssh-keygen -o -a 100 -t ed25519
+
 ssh user@host "echo '`cat ~/.ssh/id_ed25519.pub`' >> ~/.ssh/authorized_keys"
 ```
 Change the hostname to something appropriate (default is: raspberrypi) by editing */etc/hostname* and change the default password using *passwd*. Install any useful tools you're used to (vim etc.).
@@ -56,6 +57,7 @@ sudo systemctl enable ssh.socket
 Don't use apt-get! The commands below assume that your Raspian user is called *pi*
 ```bash
 sudo curl -sSL https://get.docker.com | sh
+
 sudo usermod -aG docker pi
 ```
 ## Basic networking set-up
