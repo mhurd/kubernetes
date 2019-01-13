@@ -27,7 +27,10 @@ Docker version 17.12.0-ce, build c97c6d6
 * [Ethernet Cable, Rankie 5-Pack 0.3m RJ45 Cat 6 Ethernet Patch LAN Network Cable (5-Color Combo) - R1300A (x1)](https://www.amazon.co.uk/gp/product/B01J8KFTB2/ref=oh_aui_detailpage_o05_s00?ie=UTF8&psc=1)
 
 ## OS
-Use the latest Raspian Stretch Lite img [from here](https://downloads.raspberrypi.org/raspbian_lite_latest)
+To flash the image to the SD card you can use [Etcher](https://www.balena.io/etcher/).
+
+Use the latest Raspian Stretch Lite img [from here](https://downloads.raspberrypi.org/raspbian_lite_latest). The default user/password for Raspian is pi/raspberry.
+
 You need to make a minor adjustment to the */boot/cmdline.txt* file to enable cgroup memory required by kubernetes, add the following options to the beginning:
 ```bash
 cgroup_enable=memory cgroup_memory=1
@@ -41,6 +44,12 @@ Set up any niceties such as ssh keys for hopping between the nodes:
 ```bash
 ssh-keygen -o -a 100 -t ed25519
 ssh user@host "echo '`cat ~/.ssh/id_ed25519.pub`' >> ~/.ssh/authorized_keys"
+```
+Change the hostname to something appropriate (default is: raspberrypi) by editing */etc/hostname* and change the default password using *passwd*. Install any useful tools you're used to (vim etc.).
+
+Note that Raspian doesn't seem to start the ssh server on start-up, use this to fix that:
+```bash
+sudo systemctl enable ssh.socket
 ```
 
 ## Docker installation
@@ -84,11 +93,11 @@ default-lease-time 600;
 max-lease-time 7200;
 authoritative;
 ```
-Then restart the DHCP server with:
+Then restart:
 ```bash
-sudo systemctl restart dhcpd
+sudo reboot
 ```
-Now the master node should be handing out IP addresses. You can test this by hooking up a second machine to the switch via the Ethernet. This second machine should get the address 10.0.0.2 from the DHCP server.
+Now the master node should be handing out IP addresses. You can test this when you hook up a second machine to the switch via Ethernet. This second machine should get the address 10.0.0.2 from the DHCP server.
 
 ### Private to main network routing
 The final step in setting up networking is setting up network address translation (NAT) so that the worker nodes can reach the main network. Edit */etc/rc.local* (or equivilant) and add iptables rules for forwarding eth0 to wlan0 and back.
@@ -275,10 +284,6 @@ kubectl -n kube-system describe secret kubernetes-dashboard-token-gbhln
 You should now be able to log in using this token.
 
 ## Useful commands
-1. Found that Raspian doesn't start the ssh server on start-up, use this to fix that:
-```bash
-sudo systemctl enable ssh.socket
-```
 2. Show kubelet start-up details
 ```bash
 journalctl -xeu kubelet
