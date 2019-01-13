@@ -1,6 +1,6 @@
 # kubernetes
 
-These are my notes and relevant yaml files for the setup of my Raspberry Pi cluster (4x Raspberry Pi 3 Model B's). Note this is relevant for these versions of Kubernetes and Docker:
+These are my notes and relevant yaml files for the setup of my Raspberry Pi cluster (4x Raspberry Pi 3 Model B's). Note these were last used for these versions of Kubernetes and Docker:
 
 Kubernetes: 
 ```text
@@ -9,7 +9,7 @@ Kubernetes:
 
 Docker:
 ```text
-Docker version 17.12.0-ce, build c97c6d6
+Docker version 18.09.0
 ```
 
 ## Raspberry Pi Cluster shopping list
@@ -27,43 +27,58 @@ Docker version 17.12.0-ce, build c97c6d6
 * [Ethernet Cable, Rankie 5-Pack 0.3m RJ45 Cat 6 Ethernet Patch LAN Network Cable (5-Color Combo) - R1300A (x1)](https://www.amazon.co.uk/gp/product/B01J8KFTB2/ref=oh_aui_detailpage_o05_s00?ie=UTF8&psc=1)
 
 ## OS
-To flash the image to the SD card you can use [Etcher](https://www.balena.io/etcher/).
+To flash the image to the SD card on Windows you can use [Etcher](https://www.balena.io/etcher/).
 
-Use the latest Raspian Stretch Lite img [from here](https://downloads.raspberrypi.org/raspbian_lite_latest). The default user/password for Raspian is pi/raspberry.
+Use the latest Raspian Stretch Lite img [from here](https://downloads.raspberrypi.org/raspbian_lite_latest). The default user/password for Raspian is *pi/raspberry*.
 
 You need to make a minor adjustment to the */boot/cmdline.txt* file to enable cgroup memory required by kubernetes, add the following options to the beginning:
-```bash
+```properties
 cgroup_enable=memory cgroup_memory=1
 ```
 Lower the swappiness - rather than completely removing the swap which is recommended for Kuberenetes, we only have 1Gb of RAM to play with. Edit */etc/sysctl.conf* and add:
-```bash
+```properties
 vm.swappiness = 1
 ```
 "1" means it will only use swap when RAM use exceeds 99%. 
-Set up any niceties such as ssh keys for hopping between the nodes:
-```bash
-ssh-keygen -o -a 100 -t ed25519
 
-ssh user@host "echo '`cat ~/.ssh/id_ed25519.pub`' >> ~/.ssh/authorized_keys"
+Change the hostname to something appropriate (default is: *raspberrypi*) by editing */etc/hostname* and change *pi*'s default password using *passwd*. Install any useful tools you're used to (*vim* etc.).
+
+Now is a good time to do an OS update:
+```bash
+sudo aptitude safe-upgrade
 ```
-Change the hostname to something appropriate (default is: raspberrypi) by editing */etc/hostname* and change the default password using *passwd*. Install any useful tools you're used to (vim etc.).
 
 Note that Raspian doesn't seem to start the ssh server on start-up, use this to fix that:
 ```bash
 sudo systemctl enable ssh.socket
 ```
-
+Set up any niceties such as ssh keys for hopping between the nodes:
+```bash
+ssh-keygen -o -a 100 -t ed25519
+```
 ## Docker installation
-Don't use apt-get! The commands below assume that your Raspian user is called *pi*
+The commands below assume that your Raspian user is called *pi*
 ```bash
 sudo curl -sSL https://get.docker.com | sh
-
 sudo usermod -aG docker pi
 ```
-## Basic networking set-up
-We're using a private network with all Pis connected using eth0 via the switch and one master node connected to the main network via WiFi. 
+## Master node networking set-up
+We're using a private network with all RPis connected using *eth0* via the switch and one master node connected to the main network via *wlan0*. On the master node only we want to set up the wireless networking up as this will be how we get onto the RPi private network. Edit */etc/wpa_supplicant/wpa_supplicant.conf* and add your SSID and password like so:
+```properties
+ctrl_interface=DIR=/var/run/wpa_supplicant GROUP=netdev                                 
+update_config=1
+network={
+    ssid="Information Retrieval"
+    psk="xxxxxxxxxxxxx"  
+}
+``` 
+Then restart:
+```bash
+sudo reboot
+```
+Running *ifconfig* you should see that *wlan0* has been assigned an IP from the main network.
 
-### Set up the master node as a DHCP server
+### Set up the DHCP server (master node only)
 First set up a static IP address for the cluster's internal network on the master node. Edit */etc/network/interfaces.d/eth0*:
 ```properties
 allow-hotplug eth0
@@ -73,7 +88,12 @@ iface eth0 inet static
     broadcast 10.0.0.255
     gateway 10.0.0.1
 ```
-The master node will now be 10.0.0.1 on the internal network (reboot to set this). 
+Then restart:
+```bash
+sudo reboot
+```
+
+The master node will now be 10.0.0.1 on the internal network. 
 Next we need to install DHCP on this master node so it will allocate IP addresses to the worker nodes. Run:
 ```bash
 apt-get install isc-dhcp-server
@@ -82,7 +102,6 @@ Then configure the DHCP as follows in */etc/dhcp/dhcpd.conf*
 ```properties
 # Set a domain name, can basically be anything
 option domain-name "magnum.home";
-# Use Google DNS by default, you can substitute ISP-supplied values here
 option domain-name-servers 8.8.8.8, 8.8.4.4;
 # We'll use 10.0.0.X for our subnet
 subnet 10.0.0.0 netmask 255.255.255.0 {
@@ -95,14 +114,21 @@ default-lease-time 600;
 max-lease-time 7200;
 authoritative;
 ```
+Then add *eth0* as the interface to run DHCP on, edit */etc/default/isc-dhcp-server* and add "eth0" to the ipv4 interfaces list:
+```properties
+# On what interfaces should the DHCP server (dhcpd) serve DHCP requests?
+# Separate multiple interfaces with spaces, e.g. "eth0 eth1".
+INTERFACESv4="eth0"
+INTERFACESv6="" 
+```
 Then restart:
 ```bash
 sudo reboot
 ```
-Now the master node should be handing out IP addresses. You can test this when you hook up a second machine to the switch via Ethernet. This second machine should get the address 10.0.0.2 from the DHCP server.
+Now the master node should be handing out IP addresses. 
 
-### Private to main network routing
-The final step in setting up networking is setting up network address translation (NAT) so that the worker nodes can reach the main network. Edit */etc/rc.local* (or equivilant) and add iptables rules for forwarding eth0 to wlan0 and back.
+### Private to main network routing (master node only)
+The final step in setting up networking on the master node is setting up network address translation (NAT) so that the internal network can reach the main network. Edit */etc/rc.local* (or equivilent) and add *iptables* rules for forwarding *eth0* to *wlan0* and back.
 ```bash
 iptables -t nat -A POSTROUTING -o wlan0 -j MASQUERADE
 iptables -A FORWARD -i wlan0 -o eth0 -m state --state RELATED,ESTABLISHED -j ACCEPT
@@ -110,8 +136,10 @@ iptables -A FORWARD -i eth0 -o wlan0 -j ACCEPT
 ```
 At this point the remaining worker nodes can be plugged in and get their allocated IP addresses, you can se that they are allocated the correct IP addresses by checking */var/lib/dhcp/dhcpd.leases* on the master node.
 
-Now on each node modify the */etc/hosts* file and enter mapping for all the nodes against their allocated IP addresses.
-
+You can choose to modify the */etc/hosts* file and enter mapping for all the nodes against their allocated IP addresses. For ease of moving between the nodes you can also copy the master node's public ssh key to the worker node's *authorized_keys* file (from the master node - substitute *user*/*host* with the appropriate worker nodes):
+```bash
+ssh user@host "echo '`cat ~/.ssh/id_ed25519.pub`' >> ~/.ssh/authorized_keys"
+```
 ## Installing Kubernetes
 Add the encryption key for the packages:
 ```bash
@@ -123,8 +151,8 @@ echo "deb http://apt.kubernetes.io/ kubernetes-xenial main" >> /etc/apt/sources.
 ```
 Finally, update and install the Kubernetes tools. This will also update all packages on the system.
 ```bash
-apt-get update
-apt-get upgrade
+aptitude update
+aptitude safe-upgrade
 apt-get install -y kubelet kubeadm kubectl kubernetes-cni
 ```
 Repeat this for all the nodes.
@@ -134,13 +162,13 @@ Note, to undo this initialisation so you can run init again (I did this *many* t
 ```bash
 sudo kubeadm reset
 ```
-On the master node (the one running DHCP and connected to the main network via WiFi) we need to make some changes to the default systemd scripts as we are going to use weave-net for pod networking and we also want to suppress error about running with swap enabled.
+On the master node (the one running DHCP and connected to the main network via WiFi) we need to make some changes to the default *systemd* scripts as we are going to use *weave-net* for pod networking and we also want to suppress error about running with swap enabled.
 ```bash
 sudo vim /etc/systemd/system/kubelet.service.d/10-kubeadm.conf
 ```
-Add *--fail-swap-on=false* to the args in ExecStart and also remove $KUBELET_NETWORK_ARGS from ExecStart. Repeat this on all the nodes.
+Add *--fail-swap-on=false* to the args in *ExecStart* and also remove *$KUBELET_NETWORK_ARGS* from *ExecStart*. Repeat this on all the nodes.
 
-Now on the master node use the kubeadm init command to bootstrap the cluster, only add the *--pod-network-cidr* option if you are going to use Flannel pod networking, *not* for weave-net:
+Now on the master node use the *kubeadm init* command to bootstrap the cluster, only add the *--pod-network-cidr* option if you are going to use Flannel pod networking, *not* for weave-net:
 ```bash
 sudo kubeadm init --apiserver-advertise-address 10.0.0.1 --pod-network-cidr=10.244.0.0/16 --ignore-preflight-errors Swap
 ```
@@ -215,7 +243,7 @@ Repeat for all the nodes, you should probably reboot all the nodes now to get ev
 ### Setting up weave-net for pod networking
 **NOTE could not get pod networking working with weave-net, moved to Flannel in the end. No errors in the weave-net logs, but trying a nslookup via a busybox container in the cluster failed (seemed like it couldn't get to the kube-dns service at 10.96.0.10)**
 
-Or as an alternative to Flannel you can install weave-net instead. 
+as an alternative to Flannel you can install weave-net instead. 
 We need to prepare the kube-proxy configuration to set it up for using weave-net, run:
 ```bash
 kubectl -n kube-system edit ds kube-proxy
@@ -248,15 +276,15 @@ NAMESPACE     NAME                                    READY     STATUS    RESTAR
 kube-system   etcd-magnum                             1/1       Running   9          6d        10.0.0.1     magnum
 kube-system   kube-apiserver-magnum                   1/1       Running   5          6d        10.0.0.1     magnum
 kube-system   kube-controller-manager-magnum          1/1       Running   4          6d        10.0.0.1     magnum
-kube-system   kube-dns-7b6ff86f69-5mgjr               3/3       Running   9          6d        10.244.3.2   parr
-kube-system   kube-flannel-ds-dz9zf                   1/1       Running   4          6d        10.0.0.5     capa
-kube-system   kube-flannel-ds-k5652                   1/1       Running   4          6d        10.0.0.3     bresson
+kube-system   kube-dns-7b6ff86f69-5mgjr               3/3       Running   9          6d        10.244.3.2   woodman
+kube-system   kube-flannel-ds-dz9zf                   1/1       Running   4          6d        10.0.0.5     mann
+kube-system   kube-flannel-ds-k5652                   1/1       Running   4          6d        10.0.0.3     soth
 kube-system   kube-flannel-ds-vxxz4                   1/1       Running   6          6d        10.0.0.1     magnum
-kube-system   kube-flannel-ds-wkzp6                   1/1       Running   1          6d        10.0.0.6     parr
-kube-system   kube-proxy-65bmw                        1/1       Running   4          6d        10.0.0.3     bresson
+kube-system   kube-flannel-ds-wkzp6                   1/1       Running   1          6d        10.0.0.6     woodman
+kube-system   kube-proxy-65bmw                        1/1       Running   4          6d        10.0.0.3     soth
 kube-system   kube-proxy-l22td                        1/1       Running   5          6d        10.0.0.1     magnum
-kube-system   kube-proxy-rbhgw                        1/1       Running   6          6d        10.0.0.5     capa
-kube-system   kube-proxy-x2ttc                        1/1       Running   3          6d        10.0.0.6     parr
+kube-system   kube-proxy-rbhgw                        1/1       Running   6          6d        10.0.0.5     mann
+kube-system   kube-proxy-x2ttc                        1/1       Running   3          6d        10.0.0.6     woodman
 kube-system   kube-scheduler-magnum                   1/1       Running   9          6d        10.0.0.1     magnum
 ```
 
@@ -286,43 +314,43 @@ kubectl -n kube-system describe secret kubernetes-dashboard-token-gbhln
 You should now be able to log in using this token.
 
 ## Useful commands
-2. Show kubelet start-up details
+1. Show kubelet start-up details
 ```bash
 journalctl -xeu kubelet
 ```
-3. Install the *weave* binary to get access to some functions to help investigate weave-net issues
+2. Install the *weave* binary to get access to some functions to help investigate weave-net issues
 ```bash
 curl -sSL -o /usr/local/bin/weave https://github.com/weaveworks/weave/releases/download/latest_release/weave && chmod +x /usr/local/bin/weave
 ```
-4. Get information on all pods in the cluster
+3. Get information on all pods in the cluster
 ```bash
 kubectl get pods -a -o wide --all-namespaces
 ```
-5. Removing a deployment
+4. Removing a deployment
 ```bash
 kubectl --namespace kube-system delete deployment kubernetes-dashboard
 ```
-6. Looking at the kube-dns logs
+5. Looking at the kube-dns logs
 ```bash
 kubectl logs --namespace=kube-system $(kubectl get pods --namespace=kube-system -l k8s-app=kube-dns -o name) -c kubedns
 ```
-7. Describe the services running in the default namespace
+6. Describe the services running in the default namespace
 ```bash
 kubectl describe svc
 ```
-8. Using busybox (see yaml file in the repo) to check DNS
+7. Using busybox (see yaml file in the repo) to check DNS
 ```bash
 kubectl exec busybox -- nslookup postgres
 ```
-9. Using shell in busybox
+8. Using shell in busybox
 ```bash
 kubectl exec -ti busybox -- /bin/sh
 ```
-10. Install a yaml config file
+9. Install a yaml config file
 ```bash
 kubectl apply -f my_file.yaml
 ```
-11. Allowing pods to be scheduled on master:
+10. Allowing pods to be scheduled on master:
 ```bash
 kubectl taint nodes --all node-role.kubernetes.io/master-
 ```
