@@ -4,7 +4,7 @@ These are my notes and relevant yaml files for the setup of my Raspberry Pi clus
 
 Kubernetes: 
 ```text
-&version.Info{Major:"1", Minor:"9", GitVersion:"v1.9.0", GitCommit:"925c127ec6b946659ad0fd596fa959be43f0cc05", GitTreeState:"clean", BuildDate:"2017-12-15T20:55:30Z", GoVersion:"go1.9.2", Compiler:"gc", Platform:"linux/arm"}
+&version.Info{Major:"1", Minor:"13", GitVersion:"v1.13.2", GitCommit:"cff46ab41ff0bb44d8584413b598ad8360ec1def", GitTreeState:"clean", BuildDate:"2019-01-10T23:33:30Z", GoVersion:"go1.11.4", Compiler:"gc", Platform:"linux/arm"}
 ```
 
 Docker:
@@ -141,19 +141,20 @@ You can choose to modify the */etc/hosts* file and enter mapping for all the nod
 ssh user@host "echo '`cat ~/.ssh/id_ed25519.pub`' >> ~/.ssh/authorized_keys"
 ```
 ## Installing Kubernetes
-Add the encryption key for the packages:
+Add the encryption key for the packages (root required):
 ```bash
+sudo su -
 curl -s https://packages.cloud.google.com/apt/doc/apt-key.gpg | apt-key add -
 ```
-Then add the repository to the system:
+Then add the repository to the system (root required):
 ```bash
 echo "deb http://apt.kubernetes.io/ kubernetes-xenial main" >> /etc/apt/sources.list.d/kubernetes.list
 ```
-Finally, update and install the Kubernetes tools. This will also update all packages on the system.
+You can exit as root now. Finally, update and install the Kubernetes tools. This will also update all packages on the system.
 ```bash
-aptitude update
-aptitude safe-upgrade
-apt-get install -y kubelet kubeadm kubectl kubernetes-cni
+sudo aptitude update
+sudo aptitude safe-upgrade -y
+sudo aptitude install -y kubelet kubeadm kubectl kubernetes-cni
 ```
 Repeat this for all the nodes.
 
@@ -162,19 +163,66 @@ Note, to undo this initialisation so you can run init again (I did this *many* t
 ```bash
 sudo kubeadm reset
 ```
-On the master node (the one running DHCP and connected to the main network via WiFi) we need to make some changes to the default *systemd* scripts as we are going to use *weave-net* for pod networking and we also want to suppress error about running with swap enabled.
+You'll need the basic CNI Plugins compiled and available (on each node). The sources can be obtained from GitHub and built.
 ```bash
-sudo vim /etc/systemd/system/kubelet.service.d/10-kubeadm.conf
+cd ~
+mkdir tmp && cd tmp
+wget https://github.com/containernetworking/plugins/archive/master.zip
+unzip master.zip
+cd plugins-master
+./build_linux.sh
+sudo cp -r bin/* /opt/cni/bin
 ```
-Add *--fail-swap-on=false* to the args in *ExecStart* and also remove *$KUBELET_NETWORK_ARGS* from *ExecStart*. Repeat this on all the nodes.
-
 Now on the master node use the *kubeadm init* command to bootstrap the cluster, only add the *--pod-network-cidr* option if you are going to use Flannel pod networking, *not* for weave-net:
 ```bash
-sudo kubeadm init --apiserver-advertise-address 10.0.0.1 --pod-network-cidr=10.244.0.0/16 --ignore-preflight-errors Swap
+sudo kubeadm init --apiserver-advertise-address 10.0.0.1 --ignore-preflight-errors Swap --pod-network-cidr=10.32.0.0/12
 ```
 Note that we have to tell the setup that we are using the 10.0.0.1 interface on the master node for the api server. Also we suppress errors about running with swap enabled.
 
-This can take several minutes, once complete it will let you know the join command to use on the worker nodes, something like the following but with different token/hash (we'll alter this slightly before using it):
+This will take some time and then fail:
+```bash
+[wait-control-plane] Waiting for the kubelet to boot up the control plane as static Pods from directory "/etc/kubernetes/manifests". This can take up to 4m0s                                        [kubelet-check] Initial timeout of 40s passed.                                                                                                                                                       [kubelet-check] It seems like the kubelet isn't running or healthy.                                                                                                                                  [kubelet-check] The HTTP call equal to 'curl -sSL http://localhost:10248/healthz' failed with error: Get http://localhost:10248/healthz: dial tcp [::1]:10248: connect: connection refused.
+```
+We need to go and edit the */var/lib/kubelet/config.yaml* file to enable starting up with swap enabled. Find the *FailSwapOn* and set to false. Next ensure the kube config is available to your user by copying the kube config to your home directory:
+```bash
+mkdir -p $HOME/.kube
+sudo cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
+sudo chown $(id -u):$(id -g) $HOME/.kube/config
+```
+You can then restart kubelet with the following command:
+```bash
+sudo systemctl restart kubelet
+```
+and then check the logs by running:
+```bash
+journalctl -xeu kubelet
+```
+This will still be failing due to the lack of networking layer:
+```bash
+Jan 19 15:14:07 magnum kubelet[2208]: E0119 15:14:07.118459    2208 kubelet.go:2266] node "magnum" not found
+```
+### Setting up weave-net for pod networking 
+This is required to be set for weave-net networking solutions (ensures iptables net filtering is enabled):
+```bash
+sudo sysctl net.bridge.bridge-nf-call-iptables=1
+```
+Then apply the weave-net pod networking yaml:
+```bash
+kubectl apply -f "https://cloud.weave.works/k8s/net?k8s-version=$(kubectl version | base64 | tr -d '\n')"
+```
+Checking the logs again will show the following:
+```bash
+Jan 19 15:14:48 magnum kubelet[2208]: I0119 15:14:48.195080    2208 kubelet_node_status.go:75] Successfully registered node magnum   
+Jan 19 15:14:48 magnum kubelet[2208]: I0119 15:14:48.336602    2208 reconciler.go:154] Reconciler: start to sync state 
+Jan 19 15:14:50 magnum kubelet[2208]: W0119 15:14:50.345499    2208 prober.go:103] No ref for container "docker://0158497f564880c267893682764fba3834431d63f0a0d40de256cdea3903d837" (kube-apiserver-magnum_kube-system(8f3812507a19b9e4da44a5c7da3daf1c):kube-apiserver)       Jan 19 15:14:52 magnum kubelet[2208]: W0119 15:14:52.460215    2208 cni.go:203] Unable to update cni config: No networks found in /etc/cni/net.d     
+Jan 19 15:14:52 magnum kubelet[2208]: E0119 15:14:52.461036    2208 kubelet.go:2192] Container runtime network not ready: NetworkReady=false reason:NetworkPluginNotReady message:docker: network plugin is not ready: cni config uninitialized
+...
+So its got further and recognised the master node (called *magnum* in this case) however its still failing.
+
+
+
+
+This can take a while, once complete it will let you know the join command to use on the worker nodes, something like the following but with different token/hash (we'll alter this slightly before using it):
 ```bash
 kubeadm join 10.0.0.1:6443 --token u9dmqu.joa4psqvzktnisoz --discovery-token-ca-cert-hash sha256:a354eeca82f3a89b47777255e70b256f252f5a90896290884f7ffc2927444301
 ```
@@ -186,7 +234,7 @@ sudo cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
 sudo chown $(id -u):$(id -g) $HOME/.kube/config
 ```
 ### Prepare for Pod network
-This is required to be set for various networking solutions:
+This is required to be set for various networking solutions (ensures iptables net filtering is enabled):
 ```bash
 sudo sysctl net.bridge.bridge-nf-call-iptables=1
 ```
