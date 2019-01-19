@@ -262,6 +262,43 @@ kube-system   weave-net-dlhw9                  2/2     Running   0          19m 
 kube-system   weave-net-fdnll                  2/2     Running   0          2m53s   10.0.0.6    woodman   <none>           <none>
 kube-system   weave-net-glk6x                  2/2     Running   0          37m     10.0.0.1    magnum    <none>           <none>
 ```
+### Setting up Kubernetes Dashboard
+First we need to install the arm version of the kubernetes dashaboard.
+```bash
+kubectl apply -f https://raw.githubusercontent.com/kubernetes/dashboard/v1.10.1/src/deploy/recommended/kubernetes-dashboard-arm.yaml
+```
+This install needs to be edited to set up a NodePort on the pod so that a port is exposed on all nodes (including the master node so that we can attach to the ddashboard from outside the cluster). 
+```bash
+kubectl edit services kubernetes-dashboard -n kube-system
+```
+The *spec* section should be updated to set the type to *NodePort*. You should now restart the pod:
+```bash
+kubectl scale deployment kubernetes-dashboard --replicas=0 -n kube-system
+kubectl scale deployment kubernetes-dashboard --replicas=1 -n kube-system
+```
+and see the port that is being used:
+```bash
+kubectl describe svc kubernetes-dashboard -n kube-system
+```
+Now you can add a ServiceAccount:
+```bash
+kubectl create serviceaccount mhurd --namespace=kube-system
+```
+Now edit the existing ClusterRoleBinding* named *cluster-admin*:
+```bash
+kubectl edit clusterrolebinding cluster-admin
+```
+and add a new subject for your new ServiceAccount:
+```bash
+- kind: ServiceAccount
+  name: mhurd
+  namespace: kube-system
+```
+You can access the token to use to log into the dashboard using the following command:
+```bash
+kubectl -n kube-system describe secret $(kubectl -n kube-system get secret | grep mhurd | awk '{print $1}')
+```
+You should now be able to log into the dashboard by hitting the IP address of you master node on your main network at the correct port (remember to use https).
 
 ## Useful commands
 1. Show kubelet start-up details
@@ -299,6 +336,19 @@ kubectl apply -f my_file.yaml
 10. Allowing pods to be scheduled on master:
 ```bash
 kubectl taint nodes --all node-role.kubernetes.io/master
+```
+11. Restarting a pod
+```bash
+kubectl scale deployment kubernetes-dashboard --replicas=0 -n kube-system
+kubectl scale deployment kubernetes-dashboard --replicas=1 -n kube-system
+```
+12. Displaying pod information
+```bash
+kubectl describe pod kubernetes-dashboard -n kube-system
+```
+13. Displaying service information
+```bash
+kubectl describe svc kubernetes-dashboard -n kube-system
 ```
 ### Setting up Flannel for pod networking instead of weave net (not tested in latest version!)
 Now we need to modify the flannel config to account for the required arm architecture and to force the correct port for use in the networking (flannel uses the first interface - for master this is the external wlan0 interface which is incorrect). Download the flannel yaml locally:
