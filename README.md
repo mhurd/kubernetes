@@ -222,14 +222,15 @@ kubectl get pods --all-namespaces -o wide
 ```
 should show something like this:
 ```bash
-NAMESPACE     NAME                             READY   STATUS    RESTARTS   AGE                                                                                                    kube-system   coredns-86c58d9df4-d9772         1/1     Running   0          17m
-kube-system   coredns-86c58d9df4-rpl8j         1/1     Running   0          17m
-kube-system   etcd-magnum                      1/1     Running   0          16m
-kube-system   kube-apiserver-magnum            1/1     Running   0          17m 
-kube-system   kube-controller-manager-magnum   1/1     Running   0          17m
-kube-system   kube-proxy-wv968                 1/1     Running   0          17m
-kube-system   kube-scheduler-magnum            1/1     Running   0          16m
-kube-system   weave-net-glk6x                  2/2     Running   0          15m
+NAMESPACE     NAME                             READY   STATUS    RESTARTS   AGE     IP          NODE     NOMINATED NODE   READINESS GATES
+kube-system   coredns-86c58d9df4-d9772         1/1     Running   0          25m     10.32.0.3   magnum   <none>           <none>
+kube-system   coredns-86c58d9df4-rpl8j         1/1     Running   0          25m     10.32.0.2   magnum   <none>           <none>
+kube-system   etcd-magnum                      1/1     Running   0          24m     10.0.0.1    magnum   <none>           <none>
+kube-system   kube-apiserver-magnum            1/1     Running   0          25m     10.0.0.1    magnum   <none>           <none>
+kube-system   kube-controller-manager-magnum   1/1     Running   0          25m     10.0.0.1    magnum   <none>           <none>
+kube-system   kube-proxy-wv968                 1/1     Running   0          25m     10.0.0.1    magnum   <none>           <none>
+kube-system   kube-scheduler-magnum            1/1     Running   0          24m     10.0.0.1    magnum   <none>           <none>
+kube-system   weave-net-glk6x                  2/2     Running   0          23m     10.0.0.1    magnum   <none>           <none>
 ```
 ### Joining the worker nodes to the network
 Now we can ssh to each of the worker node and join them using the string that the init command gave us earlier, just slightly modified as per the following:
