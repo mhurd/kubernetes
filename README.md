@@ -175,13 +175,15 @@ wget https://github.com/containernetworking/plugins/archive/master.zip
 unzip master.zip
 cd plugins-master
 ./build_linux.sh
+sudo mkdir -p /opt/cni/bin
+sudo mkdir -p /etc/cni/net.d
 sudo cp -r bin/* /opt/cni/bin
 ```
 This sysctl option is required to be set for weave-net networking solutions (ensures iptables net filtering is enabled):
 ```bash
 sudo sysctl net.bridge.bridge-nf-call-iptables=1
 ```
-Install the weave works software which should create a weave network cfg file like so:
+Install and set-up the weave works software which should create a default weave network cfg file in */etc/cni/net.d/*, further details on configuring this file can be found here: https://github.com/containernetworking/cni/blob/master/SPEC.md#network-configuration
 ```bash
 sudo curl -L git.io/weave -o /usr/local/bin/weave
 sudo chmod a+x /usr/local/bin/weave
