@@ -202,9 +202,9 @@ sudo kubeadm init --apiserver-advertise-address 10.0.0.1 --ignore-preflight-erro
 ```
 Note that we have to tell the setup that we are using the 10.0.0.1 interface on the master node for the api server. Also we suppress errors about running with swap enabled.
 
-When this is complete take a copy of the line at the end of the output that tells you how to join your worker nodes, you'll need to add the flag to prevent failure due to swap being enabled (see example below):
+When this is complete take a copy of the line at the end of the kubeadm init output that tells you how to join your worker nodes:
 ```bash
-kubeadm join 10.0.0.1:6443 --ignore-preflight-errors Swap --token v6s95c.m7ozsxczsmbtioot --discovery-token-ca-cert-hash sha256:xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+kubeadm join 10.0.0.1:6443 --token v6s95c.m7ozsxczsmbtioot --discovery-token-ca-cert-hash sha256:xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 ```
 Next ensure the kube config is available to your user by copying the kube config to your home directory:
 ```bash
@@ -233,9 +233,9 @@ kube-system   kube-scheduler-magnum            1/1     Running   0          24m 
 kube-system   weave-net-glk6x                  2/2     Running   0          23m     10.0.0.1    magnum   <none>           <none>
 ```
 ### Joining the worker nodes to the network
-Now we can ssh to each of the worker node and join them using the string that the init command gave us earlier, just slightly modified as per the following:
+Now we can ssh to each of the worker node and join them using the string that the init command gave us earlier, just slightly modified as per the following with the *--ignore-preflight-errors* flag:
 ```bash
-kubeadm join 10.0.0.1:6443 --token u9dmqu.joa4psqvzktnisoz --discovery-token-ca-cert-hash sha256:a354eeca82f3a89b47777255e70b256f252f5a90896290884f7ffc2927444301 --ignore-preflight-errors Swap
+sudo kubeadm join 10.0.0.1:6443 --token u9dmqu.joa4psqvzktnisoz --discovery-token-ca-cert-hash sha256:a354eeca82f3a89b47777255e70b256f252f5a90896290884f7ffc2927444301 --ignore-preflight-errors Swap
 ```
 Now you can return to the master node and check for all our new nodes and relevent pods:
 ```bash
@@ -244,57 +244,29 @@ kubectl get pods --all-namespaces -o wide
 Which you should return something like this:
 ```bash
 pi@magnum:~ $ kubectl get pods --all-namespaces -o wide
-NAMESPACE     NAME                                    READY     STATUS    RESTARTS   AGE       IP           NODE
-kube-system   etcd-magnum                             1/1       Running   9          6d        10.0.0.1     magnum
-kube-system   kube-apiserver-magnum                   1/1       Running   5          6d        10.0.0.1     magnum
-kube-system   kube-controller-manager-magnum          1/1       Running   4          6d        10.0.0.1     magnum
-kube-system   kube-dns-7b6ff86f69-5mgjr               3/3       Running   9          6d        10.244.3.2   woodman
-kube-system   kube-flannel-ds-dz9zf                   1/1       Running   4          6d        10.0.0.5     mann
-kube-system   kube-flannel-ds-k5652                   1/1       Running   4          6d        10.0.0.3     soth
-kube-system   kube-flannel-ds-vxxz4                   1/1       Running   6          6d        10.0.0.1     magnum
-kube-system   kube-flannel-ds-wkzp6                   1/1       Running   1          6d        10.0.0.6     woodman
-kube-system   kube-proxy-65bmw                        1/1       Running   4          6d        10.0.0.3     soth
-kube-system   kube-proxy-l22td                        1/1       Running   5          6d        10.0.0.1     magnum
-kube-system   kube-proxy-rbhgw                        1/1       Running   6          6d        10.0.0.5     mann
-kube-system   kube-proxy-x2ttc                        1/1       Running   3          6d        10.0.0.6     woodman
-kube-system   kube-scheduler-magnum                   1/1       Running   9          6d        10.0.0.1     magnum
+NAMESPACE     NAME                             READY   STATUS    RESTARTS   AGE     IP          NODE      NOMINATED NODE   READINESS GATES
+kube-system   coredns-86c58d9df4-d9772         1/1     Running   0          39m     10.32.0.3   magnum    <none>           <none>
+kube-system   coredns-86c58d9df4-rpl8j         1/1     Running   0          39m     10.32.0.2   magnum    <none>           <none>
+kube-system   etcd-magnum                      1/1     Running   0          38m     10.0.0.1    magnum    <none>           <none>
+kube-system   kube-apiserver-magnum            1/1     Running   0          39m     10.0.0.1    magnum    <none>           <none>
+kube-system   kube-controller-manager-magnum   1/1     Running   0          39m     10.0.0.1    magnum    <none>           <none>
+kube-system   kube-proxy-gzbj9                 1/1     Running   0          19m     10.0.0.2    soth      <none>           <none>
+kube-system   kube-proxy-ljp4l                 1/1     Running   0          4m51s   10.0.0.5    mann      <none>           <none>
+kube-system   kube-proxy-rjsbf                 1/1     Running   0          2m53s   10.0.0.6    woodman   <none>           <none>
+kube-system   kube-proxy-wv968                 1/1     Running   0          39m     10.0.0.1    magnum    <none>           <none>
+kube-system   kube-scheduler-magnum            1/1     Running   0          38m     10.0.0.1    magnum    <none>           <none>
+kube-system   weave-net-5xkps                  2/2     Running   0          4m51s   10.0.0.5    mann      <none>           <none>
+kube-system   weave-net-dlhw9                  2/2     Running   0          19m     10.0.0.2    soth      <none>           <none>
+kube-system   weave-net-fdnll                  2/2     Running   0          2m53s   10.0.0.6    woodman   <none>           <none>
+kube-system   weave-net-glk6x                  2/2     Running   0          37m     10.0.0.1    magnum    <none>           <none>
 ```
-
-## Kubernetes dashboard
-The default kubernetes dashboard needs some modification to set it up for arm. Download the yaml file locally to edit:
-```bash
-curl https://raw.githubusercontent.com/kubernetes/dashboard/master/src/deploy/recommended/kubernetes-dashboard.yaml >> kubernetes-dashboard.yaml
-```
-Now replace any instances of *amd64* with *arm* and apply. I've not looked into authentication in detail yet, for now you can elevate the dashboard user's previlages (not recommended in a serious environment), see: https://github.com/mhurd/kubernetes/blob/master/kubernetes-dashboard-002-admin.yaml, apply this using *kubectl*.
-
-Next to access the dashboard you'll need to ssh tunnel to the master node and map the *8001* port to localhost:
-```bash
-ssh -L 8001:localhost:8001 pi@master
-```
-Once on the master node you can run the kubectl proxy:
-```bash
-kubectl proxy
-```
-You can now access the dashboard from the machine your ssh-ing from at the following URL:
-```text
-http://localhost:8001/api/v1/namespaces/kube-system/services/https:kubernetes-dashboard:/proxy/#!/overview?namespace=default
-```
-To authenticate you'll need a bearer token for the dashboard user (with the elevated permissions), to find this run (with the correct dashboard identifier for your system):
-```bash
-kubectl -n kube-system describe secret kubernetes-dashboard-token-gbhln
-```
-You should now be able to log in using this token.
 
 ## Useful commands
 1. Show kubelet start-up details
 ```bash
 journalctl -xeu kubelet
 ```
-2. Install the *weave* binary to get access to some functions to help investigate weave-net issues
-```bash
-curl -sSL -o /usr/local/bin/weave https://github.com/weaveworks/weave/releases/download/latest_release/weave && chmod +x /usr/local/bin/weave
-```
-3. Get information on all pods in the cluster
+2. Get information on all pods in the cluster
 ```bash
 kubectl get pods -a -o wide --all-namespaces
 ```
@@ -302,9 +274,9 @@ kubectl get pods -a -o wide --all-namespaces
 ```bash
 kubectl --namespace kube-system delete deployment kubernetes-dashboard
 ```
-5. Looking at the kube-dns logs
+5. Looking at the coredns logs for the named node.
 ```bash
-kubectl logs --namespace=kube-system $(kubectl get pods --namespace=kube-system -l k8s-app=kube-dns -o name) -c kubedns
+kubectl logs --namespace=kube-system coredns-86c58d9df4-d9772 -c coredns
 ```
 6. Describe the services running in the default namespace
 ```bash
@@ -326,7 +298,7 @@ kubectl apply -f my_file.yaml
 ```bash
 kubectl taint nodes --all node-role.kubernetes.io/master
 ```
-### Setting up Flannel for pod networking instead of weave net
+### Setting up Flannel for pod networking instead of weave net (not tested in latest version!)
 Now we need to modify the flannel config to account for the required arm architecture and to force the correct port for use in the networking (flannel uses the first interface - for master this is the external wlan0 interface which is incorrect). Download the flannel yaml locally:
 ```bash
 curl https://raw.githubusercontent.com/coreos/flannel/master/Documentation/kube-flannel.yml >> kube-flannel.yml
@@ -375,7 +347,8 @@ For the properties shown above we'd put the following in the *daemon.json* file:
 ```
 Repeat for all the nodes, you should probably reboot all the nodes now to get everything restarted.
 
-### Setting up weave-net for pod networking - extra notes (may be required)
+### Setting up weave-net for pod networking - extra notes 
+(doesn't seem required so far based on the instructions above)
 We need to prepare the kube-proxy configuration to set it up for using weave-net, run:
 ```bash
 kubectl -n kube-system edit ds kube-proxy
