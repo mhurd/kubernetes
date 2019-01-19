@@ -202,9 +202,9 @@ sudo kubeadm init --apiserver-advertise-address 10.0.0.1 --ignore-preflight-erro
 ```
 Note that we have to tell the setup that we are using the 10.0.0.1 interface on the master node for the api server. Also we suppress errors about running with swap enabled.
 
-When this is complete take a copy of the line at the end of the output that tells you how to join your worker nodes:
+When this is complete take a copy of the line at the end of the output that tells you how to join your worker nodes, you'll need to add the flag to prevent failure due to swap being enabled (see example below):
 ```bash
-kubeadm join 10.0.0.1:6443 --token v6s95c.m7ozsxczsmbtioot --discovery-token-ca-cert-hash sha256:xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+kubeadm join 10.0.0.1:6443 --ignore-preflight-errors Swap --token v6s95c.m7ozsxczsmbtioot --discovery-token-ca-cert-hash sha256:xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 ```
 Next ensure the kube config is available to your user by copying the kube config to your home directory:
 ```bash
