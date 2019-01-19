@@ -163,6 +163,10 @@ Note, to undo this initialisation so you can run init again (I did this *many* t
 ```bash
 sudo kubeadm reset
 ```
+Note you can always check the kublet start-up logs for diagnosis by running:
+```bash
+journalctl -xeu kubelet
+```
 You'll need the basic CNI Plugins compiled and available (on each node). The sources can be obtained from GitHub and built.
 ```bash
 cd ~
@@ -173,140 +177,59 @@ cd plugins-master
 ./build_linux.sh
 sudo cp -r bin/* /opt/cni/bin
 ```
-Now on the master node use the *kubeadm init* command to bootstrap the cluster, only add the *--pod-network-cidr* option if you are going to use Flannel pod networking, *not* for weave-net:
+This sysctl option is required to be set for weave-net networking solutions (ensures iptables net filtering is enabled):
 ```bash
-sudo kubeadm init --apiserver-advertise-address 10.0.0.1 --ignore-preflight-errors Swap --pod-network-cidr=10.32.0.0/12
+sudo sysctl net.bridge.bridge-nf-call-iptables=1
+```
+Install the weave works software which should create a weave network cfg file like so:
+```bash
+sudo curl -L git.io/weave -o /usr/local/bin/weave
+sudo chmod a+x /usr/local/bin/weave
+weave setup
+ls -al /etc/cni/net.d/   
+  total 12     
+  drwxr-xr-x 2 root root 4096 Jan 19 18:16 .  
+  drwxr-xr-x 3 root root 4096 Jan 19 16:52 ..  
+  -rw-r--r-- 1 root root  318 Jan 19 18:16 10-weave.conflist
+```
+Before running the kublet init command need to add the *--fail-swap-on=false* flag to the kublet *ExecStart* options to prevent kubeadm halting when swap is enabled:
+```bash
+sudo vim /etc/systemd/system/kubelet.service.d/10-kubeadm.conf
+``` 
+Now on the master node use the *kubeadm init* command to bootstrap the cluster:
+```bash
+sudo kubeadm init --apiserver-advertise-address 10.0.0.1 --ignore-preflight-errors Swap
 ```
 Note that we have to tell the setup that we are using the 10.0.0.1 interface on the master node for the api server. Also we suppress errors about running with swap enabled.
 
-This will take some time and then fail:
+When this is complete take a copy of the line at the end of the output that tells you how to join your worker nodes:
 ```bash
-[wait-control-plane] Waiting for the kubelet to boot up the control plane as static Pods from directory "/etc/kubernetes/manifests". This can take up to 4m0s                                        [kubelet-check] Initial timeout of 40s passed.                                                                                                                                                       [kubelet-check] It seems like the kubelet isn't running or healthy.                                                                                                                                  [kubelet-check] The HTTP call equal to 'curl -sSL http://localhost:10248/healthz' failed with error: Get http://localhost:10248/healthz: dial tcp [::1]:10248: connect: connection refused.
+kubeadm join 10.0.0.1:6443 --token v6s95c.m7ozsxczsmbtioot --discovery-token-ca-cert-hash sha256:xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 ```
-We need to go and edit the */var/lib/kubelet/config.yaml* file to enable starting up with swap enabled. Find the *FailSwapOn* and set to false. Next ensure the kube config is available to your user by copying the kube config to your home directory:
+Next ensure the kube config is available to your user by copying the kube config to your home directory:
 ```bash
 mkdir -p $HOME/.kube
 sudo cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
 sudo chown $(id -u):$(id -g) $HOME/.kube/config
 ```
-You can then restart kubelet with the following command:
-```bash
-sudo systemctl restart kubelet
-```
-and then check the logs by running:
-```bash
-journalctl -xeu kubelet
-```
-This will still be failing due to the lack of networking layer:
-```bash
-Jan 19 15:14:07 magnum kubelet[2208]: E0119 15:14:07.118459    2208 kubelet.go:2266] node "magnum" not found
-```
-### Setting up weave-net for pod networking 
-This is required to be set for weave-net networking solutions (ensures iptables net filtering is enabled):
-```bash
-sudo sysctl net.bridge.bridge-nf-call-iptables=1
-```
-Then apply the weave-net pod networking yaml:
+You can now apply the weave-net pod networking which should allow the coredns module to start:
 ```bash
 kubectl apply -f "https://cloud.weave.works/k8s/net?k8s-version=$(kubectl version | base64 | tr -d '\n')"
 ```
-Checking the logs again will show the following:
+After a short time the coredns pods will start and listing the available pods:
 ```bash
-Jan 19 15:14:48 magnum kubelet[2208]: I0119 15:14:48.195080    2208 kubelet_node_status.go:75] Successfully registered node magnum   
-Jan 19 15:14:48 magnum kubelet[2208]: I0119 15:14:48.336602    2208 reconciler.go:154] Reconciler: start to sync state 
-Jan 19 15:14:50 magnum kubelet[2208]: W0119 15:14:50.345499    2208 prober.go:103] No ref for container "docker://0158497f564880c267893682764fba3834431d63f0a0d40de256cdea3903d837" (kube-apiserver-magnum_kube-system(8f3812507a19b9e4da44a5c7da3daf1c):kube-apiserver)       Jan 19 15:14:52 magnum kubelet[2208]: W0119 15:14:52.460215    2208 cni.go:203] Unable to update cni config: No networks found in /etc/cni/net.d     
-Jan 19 15:14:52 magnum kubelet[2208]: E0119 15:14:52.461036    2208 kubelet.go:2192] Container runtime network not ready: NetworkReady=false reason:NetworkPluginNotReady message:docker: network plugin is not ready: cni config uninitialized
-...
-So its got further and recognised the master node (called *magnum* in this case) however its still failing.
-
-
-
-
-This can take a while, once complete it will let you know the join command to use on the worker nodes, something like the following but with different token/hash (we'll alter this slightly before using it):
+kubectl get pods --all-namespaces -o wide
+```
+should show something like this:
 ```bash
-kubeadm join 10.0.0.1:6443 --token u9dmqu.joa4psqvzktnisoz --discovery-token-ca-cert-hash sha256:a354eeca82f3a89b47777255e70b256f252f5a90896290884f7ffc2927444301
-```
-It will also instruct you to run the following on the master node (I added the *rm* at the beginning in case you've run an init before):
-```bash
-rm -rf $HOME/.kube
-mkdir -p $HOME/.kube
-sudo cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
-sudo chown $(id -u):$(id -g) $HOME/.kube/config
-```
-### Prepare for Pod network
-This is required to be set for various networking solutions (ensures iptables net filtering is enabled):
-```bash
-sudo sysctl net.bridge.bridge-nf-call-iptables=1
-```
-
-### Setting up Flannel for pod networking
-Now we need to modify the flannel config to account for the required arm architecture and to force the correct port for use in the networking (flannel uses the first interface - for master this is the external wlan0 interface which is incorrect). Download the flannel yaml locally:
-```bash
-curl https://raw.githubusercontent.com/coreos/flannel/master/Documentation/kube-flannel.yml >> kube-flannel.yml
-```
-Replace any occurances of *amd64* with *arm*. Also add the required interface option the the container setup: *--iface=eth0*, i.e.
-```yaml
-containers:
-      - name: kube-flannel
-        image: quay.io/coreos/flannel:v0.9.1-arm
-        command:
-        - /opt/bin/flanneld
-        args:
-        - --ip-masq
-        - --kube-subnet-mgr
-        - --iface=eth0                      <--- added this
-```
-First add the RBAC config:
-```bash
-kubectl apply -f https://raw.githubusercontent.com/coreos/flannel/master/Documentation/k8s-manifests/kube-flannel-rbac.yml
-```
-Now we can install the daemon set using the modified file:
-```bash
-kubectl apply -f kube-flannel.yml
-```
-Now we need to set the docker bridge interface to use the correct Flannel subnet, run the following on each of the nodes:
-```bash
-cat /run/flannel/subnet.env
-```
-This will output some Flannel properties we can use:
-```text
-FLANNEL_NETWORK=10.244.0.0/16
-FLANNEL_SUBNET=10.244.0.1/24
-FLANNEL_MTU=1450
-FLANNEL_IPMASQ=true
-```
-Now create a docker config file in the following location and, using the *FLANNEL_SUBNET* and *FLANNEL_MTU* details from flannel, set the *bip* and *mtu* properties:
-```bash
-sudo vim /etc/docker/daemon.json
-```
-For the properties shown above we'd put the following in the *daemon.json* file:
-```text
-{
-    "bip": "10.244.0.1/24",
-    "mtu": 1450
-}
-```
-Repeat for all the nodes, you should probably reboot all the nodes now to get everything restarted.
-
-### Setting up weave-net for pod networking
-**NOTE could not get pod networking working with weave-net, moved to Flannel in the end. No errors in the weave-net logs, but trying a nslookup via a busybox container in the cluster failed (seemed like it couldn't get to the kube-dns service at 10.96.0.10)**
-
-as an alternative to Flannel you can install weave-net instead. 
-We need to prepare the kube-proxy configuration to set it up for using weave-net, run:
-```bash
-kubectl -n kube-system edit ds kube-proxy
-```
-Add in this parameter: --cluster-cidr=10.32.0.0/12, i.e.
-```bash
-containers:
-        - command:
-          - kube-proxy
-          - --kubeconfig=/run/kubeconfig
-          - --cluster-cidr=10.32.0.0/12           <--- Added this
-```
-Then apply the networking.
-```bash
-kubectl apply -f "https://cloud.weave.works/k8s/net?k8s-version=$(kubectl version | base64 | tr -d '\n')"
+NAMESPACE     NAME                             READY   STATUS    RESTARTS   AGE                                                                                                    kube-system   coredns-86c58d9df4-d9772         1/1     Running   0          17m
+kube-system   coredns-86c58d9df4-rpl8j         1/1     Running   0          17m
+kube-system   etcd-magnum                      1/1     Running   0          16m
+kube-system   kube-apiserver-magnum            1/1     Running   0          17m 
+kube-system   kube-controller-manager-magnum   1/1     Running   0          17m
+kube-system   kube-proxy-wv968                 1/1     Running   0          17m
+kube-system   kube-scheduler-magnum            1/1     Running   0          16m
+kube-system   weave-net-glk6x                  2/2     Running   0          15m
 ```
 ### Joining the worker nodes to the network
 Now we can ssh to each of the worker node and join them using the string that the init command gave us earlier, just slightly modified as per the following:
@@ -400,5 +323,71 @@ kubectl apply -f my_file.yaml
 ```
 10. Allowing pods to be scheduled on master:
 ```bash
-kubectl taint nodes --all node-role.kubernetes.io/master-
+kubectl taint nodes --all node-role.kubernetes.io/master
+```
+### Setting up Flannel for pod networking instead of weave net
+Now we need to modify the flannel config to account for the required arm architecture and to force the correct port for use in the networking (flannel uses the first interface - for master this is the external wlan0 interface which is incorrect). Download the flannel yaml locally:
+```bash
+curl https://raw.githubusercontent.com/coreos/flannel/master/Documentation/kube-flannel.yml >> kube-flannel.yml
+```
+Replace any occurances of *amd64* with *arm*. Also add the required interface option the the container setup: *--iface=eth0*, i.e.
+```yaml
+containers:
+      - name: kube-flannel
+        image: quay.io/coreos/flannel:v0.9.1-arm
+        command:
+        - /opt/bin/flanneld
+        args:
+        - --ip-masq
+        - --kube-subnet-mgr
+        - --iface=eth0                      <--- added this
+```
+First add the RBAC config:
+```bash
+kubectl apply -f https://raw.githubusercontent.com/coreos/flannel/master/Documentation/k8s-manifests/kube-flannel-rbac.yml
+```
+Now we can install the daemon set using the modified file:
+```bash
+kubectl apply -f kube-flannel.yml
+```
+Now we need to set the docker bridge interface to use the correct Flannel subnet, run the following on each of the nodes:
+```bash
+cat /run/flannel/subnet.env
+```
+This will output some Flannel properties we can use:
+```text
+FLANNEL_NETWORK=10.244.0.0/16
+FLANNEL_SUBNET=10.244.0.1/24
+FLANNEL_MTU=1450
+FLANNEL_IPMASQ=true
+```
+Now create a docker config file in the following location and, using the *FLANNEL_SUBNET* and *FLANNEL_MTU* details from flannel, set the *bip* and *mtu* properties:
+```bash
+sudo vim /etc/docker/daemon.json
+```
+For the properties shown above we'd put the following in the *daemon.json* file:
+```text
+{
+    "bip": "10.244.0.1/24",
+    "mtu": 1450
+}
+```
+Repeat for all the nodes, you should probably reboot all the nodes now to get everything restarted.
+
+### Setting up weave-net for pod networking - extra notes (may be required)
+We need to prepare the kube-proxy configuration to set it up for using weave-net, run:
+```bash
+kubectl -n kube-system edit ds kube-proxy
+```
+Add in this parameter: --cluster-cidr=10.32.0.0/12, i.e.
+```bash
+containers:
+        - command:
+          - kube-proxy
+          - --kubeconfig=/run/kubeconfig
+          - --cluster-cidr=10.32.0.0/12           <--- Added this
+```
+Then apply the networking.
+```bash
+kubectl apply -f "https://cloud.weave.works/k8s/net?k8s-version=$(kubectl version | base64 | tr -d '\n')"
 ```
