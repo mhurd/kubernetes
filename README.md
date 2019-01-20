@@ -137,9 +137,9 @@ iptables -t nat -A POSTROUTING -o wlan0 -j MASQUERADE
 iptables -A FORWARD -i wlan0 -o eth0 -m state --state RELATED,ESTABLISHED -j ACCEPT
 iptables -A FORWARD -i eth0 -o wlan0 -j ACCEPT
 ```
-At this point the remaining worker nodes can be plugged in and get their allocated IP addresses, you can se that they are allocated the correct IP addresses by checking */var/lib/dhcp/dhcpd.leases* on the master node.
+At this point the remaining worker nodes can be plugged in and get their allocated IP addresses, you can see that they are allocated the correct IP addresses by checking */var/lib/dhcp/dhcpd.leases* on the master node.
 
-You can choose to modify the */etc/hosts* file and enter mapping for all the nodes against their allocated IP addresses. For ease of moving between the nodes you can also copy the master node's public ssh key to the worker node's *authorized_keys* file (from the master node - substitute *user*/*host* with the appropriate worker nodes):
+You can choose to modify the */etc/hosts* file and enter a mapping for all the nodes against their allocated IP addresses. For ease of moving between the nodes you can also copy the master node's public ssh key to the worker node's *authorized_keys* file (from the master node - substitute *user*/*host* with the appropriate worker nodes):
 ```bash
 ssh user@host "echo '`cat ~/.ssh/id_ed25519.pub`' >> ~/.ssh/authorized_keys"
 ```
@@ -170,7 +170,7 @@ Note you can always check the kublet start-up logs for diagnosis by running:
 ```bash
 journalctl -xeu kubelet
 ```
-You'll need the basic CNI Plugins compiled and available (on each node). The sources can be obtained from GitHub and built.
+You'll need the basic CNI Plugins compiled and available (on each node). The sources can be obtained from GitHub and built. I would have thought these would have been installed with *kubernetes-cni* that was installed in an earlier step but they didn't seem to be set-up.
 ```bash
 cd ~
 mkdir tmp && cd tmp
@@ -217,7 +217,7 @@ mkdir -p $HOME/.kube
 sudo cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
 sudo chown $(id -u):$(id -g) $HOME/.kube/config
 ```
-You can now apply the weave-net pod networking which should allow the coredns module to start:
+You can now apply the weave-net pod networking which should allow the *coredns* module (*kube-dns* replacement) to start:
 ```bash
 kubectl apply -f "https://cloud.weave.works/k8s/net?k8s-version=$(kubectl version | base64 | tr -d '\n')"
 ```
@@ -266,32 +266,32 @@ kube-system   weave-net-fdnll                  2/2     Running   0          2m53
 kube-system   weave-net-glk6x                  2/2     Running   0          37m     10.0.0.1    magnum    <none>           <none>
 ```
 ### Setting up Kubernetes Dashboard
-First we need to install the arm version of the kubernetes dashaboard.
+First we need to install the arm version of the kubernetes dashboard.
 ```bash
 kubectl apply -f https://raw.githubusercontent.com/kubernetes/dashboard/v1.10.1/src/deploy/recommended/kubernetes-dashboard-arm.yaml
 ```
-This install needs to be edited to set up a NodePort on the pod so that a port is exposed on all nodes (including the master node so that we can attach to the ddashboard from outside the cluster). 
+This install needs to be edited to set up a *[NodePort](https://kubernetes.io/docs/concepts/services-networking/service/#nodeport)* on the pod so that a port is exposed on all nodes (including the master node so that we can attach to the ddashboard from outside the cluster). 
 ```bash
 kubectl edit services kubernetes-dashboard -n kube-system
 ```
-The *spec* section should be updated to set the type to *NodePort*. You should now restart the pod:
+The *spec* section should be updated to set the type to *NodePort*. You should now restart the pod by scaling the replicas down to zero then back to one:
 ```bash
 kubectl scale deployment kubernetes-dashboard --replicas=0 -n kube-system
 kubectl scale deployment kubernetes-dashboard --replicas=1 -n kube-system
 ```
-and see the port that is being used:
+You can then check the port being used:
 ```bash
 kubectl describe svc kubernetes-dashboard -n kube-system
 ```
-Now you can add a ServiceAccount:
+Now you can add a *[ServiceAccount](https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/)*:
 ```bash
 kubectl create serviceaccount mhurd --namespace=kube-system
 ```
-Now edit the existing ClusterRoleBinding* named *cluster-admin*:
+Now edit the existing *ClusterRoleBinding* named *cluster-admin*:
 ```bash
 kubectl edit clusterrolebinding cluster-admin
 ```
-and add a new subject for your new ServiceAccount:
+and add a new subject for your new *ServiceAccount*:
 ```bash
 - kind: ServiceAccount
   name: mhurd
@@ -301,7 +301,7 @@ You can access the token to use to log into the dashboard using the following co
 ```bash
 kubectl -n kube-system describe secret $(kubectl -n kube-system get secret | grep mhurd | awk '{print $1}')
 ```
-You should now be able to log into the dashboard by hitting the IP address of you master node on your main network at the correct port (remember to use https).
+You should now be able to log into the dashboard by hitting the IP address of your master node on your main network at the correct port (remember to use https), e.g. https://192.168.1.228:30350.
 
 ## Useful commands
 1. Show kubelet start-up details
@@ -353,7 +353,8 @@ kubectl describe pod kubernetes-dashboard -n kube-system
 ```bash
 kubectl describe svc kubernetes-dashboard -n kube-system
 ```
-### Setting up Flannel for pod networking instead of weave net (not tested in latest version!)
+### Setting up Flannel for pod networking instead of weave net
+**NOTE: I've not required Flannel on the latest rebuild as weave-net worked this time so these instructions may be out of date**
 Now we need to modify the flannel config to account for the required arm architecture and to force the correct port for use in the networking (flannel uses the first interface - for master this is the external wlan0 interface which is incorrect). Download the flannel yaml locally:
 ```bash
 curl https://raw.githubusercontent.com/coreos/flannel/master/Documentation/kube-flannel.yml >> kube-flannel.yml
