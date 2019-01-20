@@ -1,4 +1,4 @@
-# kubernetes
+# Raspberry Pi Cluster Build
 
 These are my notes and relevant yaml files for the setup of my Raspberry Pi cluster (4x Raspberry Pi 3 Model B's). Note these were last used for these versions of Kubernetes and Docker:
 
@@ -26,7 +26,10 @@ Docker version 18.09.0
 * [Micro USB Cable Ulreon 4 Pack Short 12 inch/0.3m High Speed Quick Charging Sync 2.4A Ultra Strong Durable Nylon Braided Cord (x1)](https://www.amazon.co.uk/gp/product/B074DVPLQP/ref=oh_aui_detailpage_o05_s00?ie=UTF8&psc=1)
 * [Ethernet Cable, Rankie 5-Pack 0.3m RJ45 Cat 6 Ethernet Patch LAN Network Cable (5-Color Combo) - R1300A (x1)](https://www.amazon.co.uk/gp/product/B01J8KFTB2/ref=oh_aui_detailpage_o05_s00?ie=UTF8&psc=1)
 
-## OS
+## The final build
+![RPi Cluster](images/pi-cluster.jpg)
+
+## Installing the OS
 To flash the image to the SD card on Windows you can use [Etcher](https://www.balena.io/etcher/).
 
 Use the latest Raspian Stretch Lite img [from here](https://downloads.raspberrypi.org/raspbian_lite_latest). The default user/password for Raspian is *pi/raspberry*.
@@ -158,7 +161,7 @@ sudo aptitude install -y kubelet kubeadm kubectl kubernetes-cni
 ```
 Repeat this for all the nodes.
 
-## Setting up the Kubernetes Cluster
+## Setting up the Kubernetes cluster
 Note, to undo this initialisation so you can run init again (I did this *many* times whilst trying to get all this working) run the following on the master node and on each of the joined worker nodes:
 ```bash
 sudo kubeadm reset
@@ -400,7 +403,7 @@ For the properties shown above we'd put the following in the *daemon.json* file:
 Repeat for all the nodes, you should probably reboot all the nodes now to get everything restarted.
 
 ### Setting up weave-net for pod networking - extra notes 
-(doesn't seem required so far based on the instructions above)
+**NOTE: This doesn't seem required so far based on the instructions above.**
 We need to prepare the kube-proxy configuration to set it up for using weave-net, run:
 ```bash
 kubectl -n kube-system edit ds kube-proxy
