@@ -265,6 +265,14 @@ kube-system   weave-net-dlhw9                  2/2     Running   0          19m 
 kube-system   weave-net-fdnll                  2/2     Running   0          2m53s   10.0.0.6    woodman   <none>           <none>
 kube-system   weave-net-glk6x                  2/2     Running   0          37m     10.0.0.1    magnum    <none>           <none>
 ```
+If you ever need to re-join a node to the cluster you can retrieve the original join command by running the following on the master:
+```bash
+kubeadm token create --print-join-command
+```
+for example if you have removed the node from the cluster for some reason (changed the hostname for example) using:
+```bash
+kubectl delete node soth
+```
 ### Setting up Kubernetes Dashboard
 First we need to install the arm version of the kubernetes dashboard.
 ```bash
