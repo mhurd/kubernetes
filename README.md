@@ -429,3 +429,8 @@ Then apply the networking.
 ```bash
 kubectl apply -f "https://cloud.weave.works/k8s/net?k8s-version=$(kubectl version | base64 | tr -d '\n')"
 ```
+
+### Reset after lastest update 25/05/2019
+After updating to the latest raspian and kubernetes various things stopped working and I needed to reset the cluster. A change to docker was required to get things working again.
+
+See: https://kubernetes.io/docs/setup/cri/ - specifically the change to /etc/docker/daemon.json
